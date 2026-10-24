@@ -1,6 +1,27 @@
-# Immich NextUI pak
+# Immich Sync for NextUI
 
-Immich photo browser and screenshot sync for NextUI. See `DESIGN.md`.
+A [NextUI](https://github.com/LoveRetro/NextUI) pak that uploads your handheld's screenshots to an [Immich](https://immich.app) server and lets you browse your Immich albums on the device.
+
+| | |
+|---|---|
+| ![Main menu](docs/screenshots/01-main.png) | ![This Device grid](docs/screenshots/02-device.png) |
+| **Main menu** | **This Device**: this handheld's synced album merged with screenshots still on the card. ⬇ means the image is on the device, ☁ means it's uploaded. |
+| ![All Screenshots](docs/screenshots/03-all.png) | ![Viewer](docs/screenshots/04-viewer.png) |
+| **All Screenshots**: every device's screenshot album in one grid. | **Viewer**: fit to screen, L1/R1 for previous/next, L2/R2 to zoom. |
+| ![Info overlay](docs/screenshots/05-info.png) | ![Controls overlay](docs/screenshots/06-controls.png) |
+| **Info (X)**: filename, date, size and album. | **Controls (START)**: the viewer's button map. |
+| ![Immich Settings](docs/screenshots/07-immich.png) | |
+| **Immich Settings**: sign in, plus account and storage details. | |
+
+## Setup
+
+1. Unzip `release.zip` at the root of your SD card (see [Install](#install)).
+2. On the device, open **Tools > Immich Sync > Settings > Immich Settings**.
+3. Enter your **Server URL**, **Email** and **Password**, then choose **Sign In**. The password is used once to create an API key; only the key is stored.
+4. Back on the main menu, open **This Device**. The first time, it asks for a name for this device. Screenshots upload to an Immich album named `<name><match key>`, e.g. `Brick_NextUI`. Keep the default match key `_NextUI` (case-sensitive) so the album also shows up in **All Screenshots** on your other devices.
+5. Optional: in **Settings > Sync Settings**, turn on **Daemon Autostart**. A background daemon then uploads new screenshots shortly after they're taken. It pauses during sleep and while a game is running (unless **Background Sync** is on), and never polls.
+
+Without the daemon, screenshots upload whenever the app is open, or with **Force Sync**. The app never deletes anything on your Immich server.
 
 ## Device support
 

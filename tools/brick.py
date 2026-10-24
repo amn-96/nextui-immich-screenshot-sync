@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drive the Brick over ssh for layout checks.
 
-  tools/brick.py shot [name]       framebuffer -> build/shots/<name>.png
+  tools/brick.py shot [name]       both framebuffer pages -> build/shots/<name>.{0,1}.png
   tools/brick.py press KEY...      tap buttons (a b x y l1 r1 l2 r2 start select up down left right)
   tools/brick.py launch | quit     start / kill the pak
 """
@@ -43,11 +43,14 @@ def press(names):
 
 def shot(name):
     from PIL import Image
-    raw = ssh("dd if=/dev/fb0 bs=4096 count=768 2>/dev/null")
+    # The app double-buffers and the pan offset in sysfs doesn't track it, so save both pages.
+    raw = ssh("dd if=/dev/fb0 bs=4096 count=1536 2>/dev/null")
     os.makedirs(os.path.join(ROOT, "build/shots"), exist_ok=True)
-    path = os.path.join(ROOT, "build/shots", name + ".png")
-    Image.frombytes("RGBA", (1024, 768), raw, "raw", "BGRA").convert("RGB").save(path)
-    print(path)
+    page_bytes = 1024 * 768 * 4
+    for page in range(2):
+        path = os.path.join(ROOT, "build/shots", f"{name}.{page}.png")
+        Image.frombytes("RGBA", (1024, 768), raw[page * page_bytes:(page + 1) * page_bytes], "raw", "BGRA").convert("RGB").save(path)
+        print(path)
 
 if __name__ == "__main__":
     command, args = sys.argv[1], sys.argv[2:]
@@ -55,6 +58,6 @@ if __name__ == "__main__":
     elif command == "press": press(args)
     elif command == "quit": ssh("killall immich.elf; true")
     elif command == "launch":
-        ssh("cd \"/mnt/SDCARD/Tools/tg5040/Immich Sync.pak\" && (LOGS_PATH=/mnt/SDCARD/.userdata/tg5040/logs "
+        ssh("cd \"/mnt/SDCARD/Tools/tg5040/Immich Sync.pak\" && (LD_LIBRARY_PATH=/mnt/SDCARD/.system/tg5040/lib:/usr/trimui/lib LOGS_PATH=/mnt/SDCARD/.userdata/tg5040/logs "
             "SHARED_USERDATA_PATH=/mnt/SDCARD/.userdata/shared nohup ./launch.sh >/dev/null 2>&1 &)")
         time.sleep(2)
