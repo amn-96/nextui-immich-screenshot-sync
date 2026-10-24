@@ -12,8 +12,8 @@ A [NextUI](https://github.com/LoveRetro/NextUI) pak built to sync your retro gam
 | **Info (X)**: filename, date, size and album. | **Controls (START)**: the viewer's button map. |
 | ![Settings](docs/screenshots/08-settings.png) | ![Sync Settings](docs/screenshots/09-sync.png) |
 | **Settings** | **Sync Settings**: force a sync, reset the album, and control the background daemon. |
-| ![Immich Settings](docs/screenshots/07-immich.png) | |
-| **Immich Settings**: sign in, plus account and storage details. | |
+| ![Immich Settings](docs/screenshots/07-immich.png) | ![Immich Albums](docs/screenshots/10-albums.png) |
+| **Immich Settings**: sign in, plus account and storage details. | **Immich Albums**: every album on your server with cover thumbnails. Y to sort, left/right to page. |
 
 ## Setup
 
