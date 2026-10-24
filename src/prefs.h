@@ -13,7 +13,7 @@ typedef struct {
 	char server_url[256];
 	char api_key[128];
 	char user_email[128];
-	char album_label[64];        // synced album is "<album_label> <match_key>"
+	char album_label[64];        // synced album is "<album_label><match_key>"
 	char match_key[32];          // empty until onboarding; fixed afterwards until Reset Sync Settings
 	char album_id[40];           // synced album id, set when onboarding creates/finds it
 	int cache_limit_mb;          // 0 = unlimited

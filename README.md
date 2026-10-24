@@ -1,6 +1,6 @@
 # Immich Sync for NextUI
 
-A [NextUI](https://github.com/LoveRetro/NextUI) pak that uploads your handheld's screenshots to an [Immich](https://immich.app) server and lets you browse your Immich albums on the device.
+A [NextUI](https://github.com/LoveRetro/NextUI) pak built to sync your retro gaming screenshots to your self-hosted [Immich](https://immich.app) server. Doubles as a basic image viewer.
 
 | | |
 |---|---|
@@ -19,7 +19,7 @@ A [NextUI](https://github.com/LoveRetro/NextUI) pak that uploads your handheld's
 
 1. Unzip `release.zip` at the root of your SD card (see [Install](#install)).
 2. On the device, open **Tools > Immich Sync > Settings > Immich Settings**.
-3. Enter your **Server URL**, **Email** and **Password**, then choose **Sign In**. The password is used once to create an API key; only the key is stored.
+3. Enter your **Server URL**, **Email** and **Password**, then choose **Sign In**. The password is used once to create an API key; only the key is stored. To use your own API key instead, see [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md).
 4. Back on the main menu, open **This Device**. The first time, it asks for a name for this device. Screenshots upload to an Immich album named `<name><match key>`, e.g. `Brick_NextUI`. Keep the default match key `_NextUI` (case-sensitive) so the album also shows up in **All Screenshots** on your other devices.
 5. Optional: in **Settings > Sync Settings**, turn on **Daemon Autostart**. A background daemon then uploads new screenshots shortly after they're taken. It pauses during sleep and while a game is running (unless **Background Sync** is on), and never polls.
 
@@ -27,7 +27,7 @@ Without the daemon, screenshots upload whenever the app is open, or with **Force
 
 ## Device support
 
-**Only tested on the TrimUI Brick.** Builds are also produced for every platform NextUI ships, but they have never run on real hardware:
+**This was developed and tested on the TrimUI Brick.** I've compiled builds for all other NextUI-supported devices but cannot test them because my only NextUI device is my Brick. I also have an H700 CubeXX but will need to grab some SD cards and time to test on that.
 
 | NextUI platform | Devices | Status |
 |---|---|---|
@@ -36,7 +36,7 @@ Without the daemon, screenshots upload whenever the app is open, or with **Force
 | `tg5050` | TrimUI Smart Pro S | Compiles, untested |
 | `h700` | Anbernic RG35XX/RG40XX family | Compiles, untested |
 
-Reports from other devices are welcome via issues.
+If you're not on a Brick, the UI might break in some spots especially with text layouts. Reports from other devices are welcome via issues or discord -- please send screenshots if possible! 
 
 ## Build
 
