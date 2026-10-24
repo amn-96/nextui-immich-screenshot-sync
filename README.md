@@ -7,13 +7,17 @@ A [NextUI](https://github.com/LoveRetro/NextUI) pak built to sync your retro gam
 | ![Main menu](docs/screenshots/01-main.png) | ![This Device grid](docs/screenshots/02-device.png) |
 | **Main menu** | **This Device**: this handheld's synced album merged with screenshots still on the card. ⬇ means the image is on the device, ☁ means it's uploaded. |
 | ![All Screenshots](docs/screenshots/03-all.png) | ![Viewer](docs/screenshots/04-viewer.png) |
-| **All Screenshots**: every device's screenshot album in one grid. | **Viewer**: fit to screen, L1/R1 for previous/next, L2/R2 to zoom. |
+| **All Screenshots**: every device's screenshot album in one grid. | **Viewer**: Clean view by default. X for Info Overlay; START for Controls Overlay |
 | ![Info overlay](docs/screenshots/05-info.png) | ![Controls overlay](docs/screenshots/06-controls.png) |
-| **Info (X)**: filename, date, size and album. | **Controls (START)**: the viewer's button map. |
+| **Info Overlay (X)** | **Controls (START)**: button mapping for the viewer. |
 | ![Settings](docs/screenshots/08-settings.png) | ![Sync Settings](docs/screenshots/09-sync.png) |
-| **Settings** | **Sync Settings**: force a sync, reset the album, and control the background daemon. |
+| **Settings** | **Sync Settings** |
 | ![Immich Settings](docs/screenshots/07-immich.png) | ![Immich Albums](docs/screenshots/10-albums.png) |
-| **Immich Settings**: sign in, plus account and storage details. | **Immich Albums**: every album on your server with cover thumbnails. Y to sort, left/right to page. |
+| **Immich Settings**: sign in, plus account and storage details. | **Immich Albums**: every album on your server with cover thumbnails. |
+
+## Features
+- Automatically sync your Brick's screenshots with your Immich server
+- Immich image browser with a download functional and basic on-device file management
 
 ## Setup
 
@@ -38,9 +42,11 @@ If you'd prefer, you may use your own Immich API key directly. See [CONFIGURATIO
 
 #### Onboarding
 1. Back on the main menu, open **This Device**. The first time, it asks for a name for this device. Screenshots upload to an Immich album named `<name><match key>`, e.g. `Brick_NextUI`. Keep the default match key `_NextUI` (case-sensitive) so the album also shows up in **All Screenshots** on your other devices.
-2. Optional: in **Settings > Sync Settings**, turn on **Daemon Autostart**. A background daemon then uploads new screenshots shortly after they're taken. It pauses during sleep and while a game is running (unless **Background Sync** is on), and never polls.
+2. Optional: in **Settings > Sync Settings**, turn on **Daemon Autostart**. A background daemon then uploads new screenshots shortly after they're taken. It pauses during sleep and while a game is running (unless **Background Sync** is on). The daemon auto-runs the sync process 5s after wake with a retry at 30s in case wifi didn't connect; 5s after a game exits; and then on a stepped schedule afterwards.
 
-Without the daemon, screenshots upload whenever the app is open, or with **Force Sync**. The app never deletes anything on your Immich server.
+Without the daemon, screenshots upload as soon as the app opens, or with **Force Sync**. The daemon is still in testing to find my preferred schedule and to characterize its impact on gaming and battery life. Preliminary testing shows 0 idle cpu usage and since it doesn't run when a game is active, it shouldn't impact performance. Large library syncs may take a while and drain your battery that way, but it should be safe. I plan to switch the daemon to `ON` by default in a future release soon.
+
+The app never deletes anything on your Immich server.
 
 ## Device support
 
@@ -73,7 +79,8 @@ Bump `version` (and `changelog`) in `pak.json`, commit, then push a matching tag
 This is AI-assisted af. I do have previous experience hand-writing little apps like this to talk to self-hosted services and my day job is a lot of Python (pre-AI and post-AI), but I haven't written anything in C since CS 101 so Claude did all the legwork to integrate with NextUI's tooling and libraries. I've reviewed the general structure of the code and all of the docs and functionality descriptions are proofed by me.
 
 ## Roadmap
+- Daemon on by default (pending some testing)
 - Test layout and functionality on my CubeXX
-- See if anything can be done to make caching and loading faster. Screenshots are quick but if you have high res images like I do, it can be a bit slow. Not sure how much of this is just slow hardware (probably a lot).
+- See if anything can be done to make caching and loading faster. Screenshots are quick but if you have high res images like I do, it can be a bit slow. Not sure how much of this is just slow hardware...
 - Test an actual Immich timeline view. I'm worried this'll chomp up all the Brick's RAM.
 - Support for videos? Is that useful?
