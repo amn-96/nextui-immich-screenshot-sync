@@ -14,9 +14,9 @@
     "docs/screenshots/01-main.png",
     "docs/screenshots/02-device.png",
     "docs/screenshots/03-all.png",
-    "docs/screenshots/04-viewer.png",
+    "docs/screenshots/10-albums.png",
     "docs/screenshots/05-info.png",
-    "docs/screenshots/08-settings.png"
+    "docs/screenshots/06-controls.png"
   ],
   "platforms": ["tg5040", "tg5050", "h700"]
 }
