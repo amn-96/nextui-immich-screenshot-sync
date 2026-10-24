@@ -10,6 +10,8 @@ A [NextUI](https://github.com/LoveRetro/NextUI) pak that uploads your handheld's
 | **All Screenshots**: every device's screenshot album in one grid. | **Viewer**: fit to screen, L1/R1 for previous/next, L2/R2 to zoom. |
 | ![Info overlay](docs/screenshots/05-info.png) | ![Controls overlay](docs/screenshots/06-controls.png) |
 | **Info (X)**: filename, date, size and album. | **Controls (START)**: the viewer's button map. |
+| ![Settings](docs/screenshots/08-settings.png) | ![Sync Settings](docs/screenshots/09-sync.png) |
+| **Settings** | **Sync Settings**: force a sync, reset the album, and control the background daemon. |
 | ![Immich Settings](docs/screenshots/07-immich.png) | |
 | **Immich Settings**: sign in, plus account and storage details. | |
 

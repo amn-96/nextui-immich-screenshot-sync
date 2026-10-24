@@ -1,6 +1,6 @@
 # Immich Sync (NextUI pak)
 
-Native C (gnu99) app for NextUI handhelds: browses Immich albums and syncs device screenshots to a per-device album. `DESIGN.md` has screens and architecture; `README.md` has build and install.
+Native C (gnu99) app for NextUI handhelds: browses Immich albums and syncs device screenshots to a per-device album. `docs/DESIGN.md` has screens and architecture; `README.md` has build and install.
 
 ## Layout
 
