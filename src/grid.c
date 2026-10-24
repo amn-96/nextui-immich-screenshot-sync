@@ -9,6 +9,7 @@
 #include "api.h"
 #include "config.h"
 #include "cache.h"
+#include "text.h"
 #include "grid.h"
 #include "prefs.h"
 #include "ui.h"
@@ -97,15 +98,13 @@ static Uint32 theme_color(uint32_t rgba) {
 }
 
 static int pill_width(const char* text) {
-	int width;
-	TTF_SizeUTF8(font.small, text, &width, NULL);
-	return width + SCALE1(BUTTON_PADDING * 2);
+	return text_width(font.small, text) + SCALE1(BUTTON_PADDING * 2);
 }
 
 static void draw_pill_text(const char* text, int x, int y, int max_width) {
 	char truncated[256];
-	int width = GFX_truncateText(font.small, text, truncated, max_width, SCALE1(BUTTON_PADDING * 2));
-	SDL_Surface* rendered = TTF_RenderUTF8_Blended(font.small, truncated, COLOR_WHITE);
+	int width = text_truncate(font.small, text, truncated, max_width, SCALE1(BUTTON_PADDING * 2));
+	SDL_Surface* rendered = text_render(font.small, truncated, COLOR_WHITE);
 	GFX_blitPillLight(ASSET_WHITE_PILL, screen, &(SDL_Rect){x, y, width, SCALE1(PILL_SIZE)});
 	SDL_BlitSurface(rendered, NULL, screen, &(SDL_Rect){x + SCALE1(BUTTON_PADDING), y + (SCALE1(PILL_SIZE) - rendered->h) / 2});
 	SDL_FreeSurface(rendered);

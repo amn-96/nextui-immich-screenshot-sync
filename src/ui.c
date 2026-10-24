@@ -5,6 +5,7 @@
 #include "config.h"
 #include "utils.h"
 #include "ui.h"
+#include "text.h"
 
 #define OPTION_PADDING 8
 #define SCROLL_WIDTH 24
@@ -44,8 +45,8 @@ void ui_init(SDL_Surface* main_screen) {
 
 void ui_draw_title(const char* title, int hardware_width) {
 	char truncated_title[256];
-	GFX_truncateText(title_font, title, truncated_title, screen->w - SCALE1(PADDING * 2 + OPTION_PADDING) - hardware_width, 0);
-	SDL_Surface* text = TTF_RenderUTF8_Blended(title_font, truncated_title, uintToColour(THEME_COLOR4_255));
+	text_truncate(title_font, title, truncated_title, screen->w - SCALE1(PADDING * 2 + OPTION_PADDING) - hardware_width, 0);
+	SDL_Surface* text = text_render(title_font, truncated_title, uintToColour(THEME_COLOR4_255));
 	SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){SCALE1(PADDING + OPTION_PADDING), SCALE1(PADDING) + (SCALE1(PILL_SIZE) - text->h) / 2});
 	SDL_FreeSurface(text);
 }
@@ -53,18 +54,18 @@ void ui_draw_title(const char* title, int hardware_width) {
 static void drawMainRow(UiRow* row, SDL_Rect* dst, int selected) {
 	char truncated[256];
 	SDL_Color text_color = COLOR_WHITE;
-	int pill_width = GFX_truncateText(font.large, row->label, truncated, dst->w, SCALE1(BUTTON_PADDING * 2));
+	int pill_width = text_truncate(font.large, row->label, truncated, dst->w, SCALE1(BUTTON_PADDING * 2));
 	if (selected) {
 		GFX_blitPillDark(ASSET_WHITE_PILL, screen, &(SDL_Rect){dst->x, dst->y, pill_width, dst->h});
 		text_color = COLOR_BLACK;
 	}
-	SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, truncated, text_color);
+	SDL_Surface* text = text_render(font.large, truncated, text_color);
 	SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){dst->x + SCALE1(BUTTON_PADDING), dst->y + (dst->h - text->h) / 2});
 	SDL_FreeSurface(text);
 }
 
 static void drawHeaderRow(UiRow* row, SDL_Rect* dst) {
-	SDL_Surface* label = TTF_RenderUTF8_Blended(font.tiny, row->label, uintToColour(THEME_COLOR2_255));
+	SDL_Surface* label = text_render(font.tiny, row->label, uintToColour(THEME_COLOR2_255));
 	SDL_BlitSurface(label, NULL, screen, &(SDL_Rect){dst->x + SCALE1(OPTION_PADDING), dst->y + dst->h - label->h});
 	SDL_FreeSurface(label);
 }
@@ -88,18 +89,17 @@ static void drawListRow(UiRow* row, SDL_Rect* dst, int selected, int tall) {
 		label_area.w -= UI_ICON_SIZE + inset * 2;
 	}
 	if (value_text) {
-		SDL_Surface* value = TTF_RenderUTF8_Blended(font.tiny, value_text, text_color);
+		SDL_Surface* value = text_render(font.tiny, value_text, text_color);
 		SDL_SetSurfaceAlphaMod(value, alpha);
 		SDL_BlitSurface(value, NULL, screen, &(SDL_Rect){dst->x + dst->w - value->w - SCALE1(OPTION_PADDING), dst->y + (dst->h - value->h) / 2});
 		SDL_FreeSurface(value);
 	}
 	if (selected) {
-		int label_width = 0;
-		TTF_SizeUTF8(font.small, row->label, &label_width, NULL);
+		int label_width = text_width(font.small, row->label);
 		drawRowBackground(&(SDL_Rect){label_area.x, dst->y, label_width + SCALE1(OPTION_PADDING * 2), dst->h}, tall, 0);
 		text_color = uintToColour(THEME_COLOR5_255);
 	}
-	SDL_Surface* label = TTF_RenderUTF8_Blended(font.small, row->label, text_color);
+	SDL_Surface* label = text_render(font.small, row->label, text_color);
 	SDL_SetSurfaceAlphaMod(label, alpha);
 	SDL_BlitSurface(label, NULL, screen, &(SDL_Rect){label_area.x + SCALE1(OPTION_PADDING), dst->y + (dst->h - label->h) / 2});
 	SDL_FreeSurface(label);
@@ -112,7 +112,7 @@ static int drawInfoCard(const char* description, Uint32 started_at) {
 		screen->w - SCALE1(PADDING * 2), SCALE1(PILL_SIZE),
 	};
 	GFX_blitPillLight(ASSET_WHITE_PILL, screen, &card);
-	SDL_Surface* text = TTF_RenderUTF8_Blended(font.small, description, uintToColour(THEME_COLOR4_255));
+	SDL_Surface* text = text_render(font.small, description, uintToColour(THEME_COLOR4_255));
 	int visible_width = card.w - SCALE1(OPTION_PADDING * 2);
 	int overflow = text->w - visible_width;
 	int offset = 0;
@@ -319,10 +319,10 @@ void ui_draw_progress(char* title, char* headline, char* detail, int done, int t
 	int bar_x = (screen->w - bar_width) / 2;
 	int bar_y = screen->h / 2;
 	char truncated[256];
-	GFX_truncateText(font.small, detail, truncated, screen->w - SCALE1(PADDING * 2), 0);
+	text_truncate(font.small, detail, truncated, screen->w - SCALE1(PADDING * 2), 0);
 	char* lines[] = { headline, truncated };
 	for (int i = 0; i < 2; i++) {
-		SDL_Surface* text = TTF_RenderUTF8_Blended(font.small, lines[i], uintToColour(THEME_COLOR4_255));
+		SDL_Surface* text = text_render(font.small, lines[i], uintToColour(THEME_COLOR4_255));
 		SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){(screen->w - text->w) / 2, bar_y - SCALE1(PILL_SIZE * (2 - i)) });
 		SDL_FreeSurface(text);
 	}

@@ -17,7 +17,7 @@ Reports from other devices are welcome via issues.
 
 ## Build
 
-Requires Docker and `git submodule update --init` (NextUI, cJSON, libwebp are pinned submodules under `vendor/`).
+Requires Docker and `git submodule update --init` (NextUI, cJSON, libwebp, SDL_ttf are pinned submodules under `vendor/`), plus `git -C vendor/SDL_ttf submodule update --init external/freetype`. The device's SDL_ttf is too old for emoji, so SDL_ttf 2.22 and its FreeType are built statically; `pak/NotoEmoji.ttf` (OFL) supplies the emoji glyphs.
 
     make          # build/tg5040/immich.elf in the tg5040 toolchain container
     make pak      # assemble "build/tg5040/Immich Sync.pak"

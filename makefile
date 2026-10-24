@@ -24,7 +24,7 @@ $(CACERT):
 pak: all $(CACERT)
 	rm -rf "$(PAK)"
 	mkdir -p "$(PAK)"
-	cp pak/launch.sh pak/pak.json pak/immich-sync.sh $(ELF) $(CACERT) "$(PAK)/"
+	cp pak/launch.sh pak/pak.json pak/immich-sync.sh pak/NotoEmoji.ttf pak/NotoEmoji-OFL.txt $(ELF) $(CACERT) "$(PAK)/"
 
 # One zip for every platform; unzip at the SD card root.
 release: $(CACERT)
