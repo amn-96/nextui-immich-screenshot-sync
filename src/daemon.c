@@ -20,12 +20,14 @@
 #define DEBOUNCE_S 10
 #define RESUME_S 5
 #define BOOT_S 30
+// Wi-Fi often reconnects well after wake, so one early retry precedes the backoff.
+#define WAKE_RETRY_S 30
 #define ASLEEP_RECHECK_S 5
 
 static const int BACKOFF_S[] = { 5 * 60, 15 * 60, 60 * 60 };
 
 static int signal_fd;
-static int parked, quit;
+static int parked, quit, woke;
 static time_t due_at;            // when the next sync should start, 0 = nothing pending
 static int failures;
 static int reported_done;
@@ -108,8 +110,9 @@ static void handle_signals(void) {
 	struct signalfd_siginfo signal_event;
 	while (read(signal_fd, &signal_event, sizeof(signal_event)) == sizeof(signal_event)) {
 		if (signal_event.ssi_signo == SIGUSR2) parked = 1;
-		else if (signal_event.ssi_signo == SIGUSR1) {
+		else if (signal_event.ssi_signo == SIGUSR1 || signal_event.ssi_signo == SIGHUP) {
 			parked = 0;
+			woke = signal_event.ssi_signo == SIGHUP;
 			due_at = now_s() + RESUME_S;
 		}
 		else quit = 1;
@@ -126,6 +129,12 @@ static int should_stop(void) {
 }
 
 static void back_off(const char* reason) {
+	if (woke) {
+		woke = 0;
+		due_at = now_s() + WAKE_RETRY_S;
+		fprintf(stderr, "%s, retrying in %d s\n", reason, WAKE_RETRY_S);
+		return;
+	}
 	due_at = now_s() + BACKOFF_S[failures];
 	fprintf(stderr, "%s, retrying in %d min\n", reason, BACKOFF_S[failures] / 60);
 	if (failures < (int)(sizeof(BACKOFF_S) / sizeof(*BACKOFF_S)) - 1) failures++;
@@ -149,7 +158,7 @@ static void run_sync(void) {
 	sync_status(&outcome);
 	fprintf(stderr, "sync state %d: %d to upload, uploaded %d, existing %d, failed %d %s\n", outcome.state,
 		outcome.total, outcome.uploaded, outcome.existing, outcome.failed, outcome.error);
-	if (outcome.state == SYNC_DONE && !outcome.failed) failures = 0;
+	if (outcome.state == SYNC_DONE && !outcome.failed) failures = woke = 0;
 	else if (outcome.state == SYNC_CANCELLED) due_at = parked || quit ? 0 : now_s() + ASLEEP_RECHECK_S;
 	else if (outcome.state != SYNC_IDLE) back_off("sync incomplete");
 }
@@ -172,6 +181,7 @@ int daemon_run(void) {
 	sigemptyset(&signals);
 	sigaddset(&signals, SIGUSR1);
 	sigaddset(&signals, SIGUSR2);
+	sigaddset(&signals, SIGHUP);
 	sigaddset(&signals, SIGTERM);
 	sigprocmask(SIG_BLOCK, &signals, NULL);
 	signal_fd = signalfd(-1, &signals, SFD_NONBLOCK);

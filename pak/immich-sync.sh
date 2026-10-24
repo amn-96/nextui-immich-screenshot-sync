@@ -11,7 +11,7 @@ export SHARED_USERDATA_PATH
 PREFS_DIR="$SHARED_USERDATA_PATH/Immich"
 HOOK_DIRS="boot.d pre-launch.d post-launch.d pre-sleep.d post-resume.d"
 
-# The pid file can outlive a crashed daemon, and USR1/USR2 would kill whatever reused the pid.
+# The pid file can outlive a crashed daemon, and USR1/USR2/HUP would kill whatever reused the pid.
 signal_daemon() {
 	pid=$(cat "$PREFS_DIR/daemon.pid" 2>/dev/null)
 	[ -n "$pid" ] && grep -q -- --sync-daemon "/proc/$pid/cmdline" 2>/dev/null && kill "-$1" "$pid"
@@ -40,7 +40,8 @@ case "${HOOK_CATEGORY:-$1}" in
 	boot.d) start_daemon ;;
 	pre-launch.d) grep -qx 'background_sync=1' "$PREFS_DIR/prefs.txt" || park ;;
 	pre-sleep.d) park ;;
-	post-launch.d | post-resume.d) signal_daemon USR1 ;;
+	post-launch.d) signal_daemon USR1 ;;
+	post-resume.d) signal_daemon HUP ;;
 	install)
 		for dir in $HOOK_DIRS; do
 			mkdir -p "$USERDATA_PATH/.hooks/$dir"
