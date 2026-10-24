@@ -42,7 +42,7 @@ int is_match_album(const char* name) {
 }
 
 void prefs_synced_album_name(char* out, size_t size) {
-	snprintf(out, size, "%s %s", prefs.album_label, match_key());
+	snprintf(out, size, "%s%s", prefs.album_label, match_key());
 }
 
 static void copy_str(char* dest, size_t size, const char* src) {

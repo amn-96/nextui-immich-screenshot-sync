@@ -29,7 +29,7 @@ int cache_load_assets(const char* key, ImmichAsset** assets, int* count);
 // Fetches the full listing from the server and caches it. 0 on success, -1 on failure (cache untouched).
 int cache_refresh_assets(const char** album_ids, int album_count, const char* key, ImmichAsset** assets, int* count);
 
-// 1 if every id is a "(NextUI)" album in the cached album list; those originals belong in Screenshots.
+// 1 if every id is a "_NextUI" album in the cached album list; those originals belong in Screenshots.
 int albums_all_nextui(const char** album_ids, int album_count);
 // Where downloaded originals go: Screenshots for NextUI albums, Pictures/Immich otherwise.
 const char* original_dir(int screenshots);

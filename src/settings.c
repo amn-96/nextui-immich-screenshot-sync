@@ -117,8 +117,8 @@ static void immich_menu(void) {
 #define ALBUM_NAME_LEN (sizeof(prefs.album_label) + sizeof(prefs.match_key) + 1)
 
 int onboarding_run(void) {
-	if (!ui_confirm("Screenshots on this device upload to an Immich album named \"<name> <match key>\".\n\n"
-		"Albums ending in the same match key also show in All Screenshots.")) return 0;
+	if (!ui_confirm("Screenshots on this device upload to an Immich album named \"<name><match key>\", e.g. \"Brick_NextUI\".\n\n"
+		"Albums ending in the same match key also show in All Screenshots. Match keys are case-sensitive.")) return 0;
 	if (!prefs.api_key[0]) {
 		ui_alert("Sync needs an Immich server.\n\nSign in under Settings > Immich Settings. No server yet? See immich.app to set one up.");
 		return 0;
@@ -133,14 +133,14 @@ int onboarding_run(void) {
 	char label_text[sizeof(label)], album_name[ALBUM_NAME_LEN];
 	UiRow rows[] = {
 		{ UI_ROW_ACTION, "Album Name for this Device", label_text, .description = "Names this device's album, e.g. \"Brick\". Required." },
-		{ UI_ROW_ACTION, "Album Match Key", key, .description = "Ends the album name. Albums with the same ending show in All Screenshots. Keep the default unless you know why." },
+		{ UI_ROW_ACTION, "Album Match Key", key, .description = "Ends the album name, case-sensitive. Albums with the same ending show in All Screenshots. Keep the default unless you know why." },
 		{ UI_ROW_READOUT, "Album", album_name, .description = "The Immich album your screenshots will upload to. It is created if missing, never deleted." },
 		{ UI_ROW_ACTION, "Confirm", .description = "Create or find the album and start syncing. Name and key cannot be edited afterwards." },
 	};
 	UiMenu menu = { "Sync Setup", UI_STYLE_LIST, "OKAY", rows, ARRAY_LEN(rows) };
 	for (;;) {
 		snprintf(label_text, sizeof(label_text), "%s", text_or_unset(label));
-		snprintf(album_name, sizeof(album_name), "%s %s", label[0] ? label : "?", key);
+		snprintf(album_name, sizeof(album_name), "%s%s", label[0] ? label : "?", key);
 		if (ui_menu_run(&menu) == UI_BACK) return 0;
 		if (menu.selected == 0) ui_text_input("Album Name for this Device", label, label, sizeof(label));
 		else if (menu.selected == 1) ui_text_input("Album Match Key", key, key, sizeof(key));

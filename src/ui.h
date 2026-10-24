@@ -17,9 +17,10 @@ typedef struct {
 	int value_count;
 	int value_index;
 	const char* description;     // shown in the info card (X), may be NULL
+	SDL_Surface* icon;           // drawn left of the label in icon menus, may be NULL; owned by the caller
 } UiRow;
 
-typedef struct {
+typedef struct UiMenu {
 	char* title;
 	UiStyle style;
 	char* confirm_hint;          // label for the A button hint
@@ -27,9 +28,16 @@ typedef struct {
 	int row_count;
 	int selected;
 	int start;                   // first visible row, maintained by drawing
+	int visible;                 // rows on screen, maintained by drawing
 	const char* (*status)(void); // polled every frame; text drawn left of the hardware group, NULL for none
 	char* options_hint;          // label for Y, which then returns UI_OPTIONS; NULL disables Y
+	int (*poll)(struct UiMenu*); // called every frame for icon menus; returns 1 when rows changed and need a redraw
+	int pages;                   // left/right jump a page, for long lists
 } UiMenu;
+
+// List rows in icon menus (poll set) are main-menu height, unscaled, with a UI_ICON_SIZE square icon.
+#define UI_ICON_ROW_HEIGHT PILL_SIZE
+#define UI_ICON_SIZE SCALE1(UI_ICON_ROW_HEIGHT - 4)
 
 // Shared with screens that draw their own body (grid.c): the display and the volume/brightness overlay state.
 extern SDL_Surface* screen;
@@ -43,6 +51,7 @@ void ui_draw_title(const char* title, int hardware_width);
 
 // Blocks until the user acts. ui_menu_run returns UI_ACTION (menu->selected was activated),
 // UI_CHANGED (menu->selected cycled to a new value_index), UI_OPTIONS or UI_BACK.
+// With pages set, left/right page through the list; CYCLE rows use them to change the value.
 UiEvent ui_menu_run(UiMenu* menu);
 
 void ui_flash(char* message);    // draws once, does not wait

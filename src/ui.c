@@ -14,7 +14,7 @@
 #define KEY_COLS 10
 #define KEY_HEIGHT PILL_SIZE
 #define TEXT_CAPACITY 512
-#define TITLE_FONT_EXTRA 6
+#define TITLE_FONT_EXTRA 3
 #define INFO_GAP 5
 #define INFO_PAUSE_MS 1500
 #define INFO_SCROLL_PX_PER_SEC 30
@@ -69,12 +69,24 @@ static void drawHeaderRow(UiRow* row, SDL_Rect* dst) {
 	SDL_FreeSurface(label);
 }
 
-static void drawListRow(UiRow* row, SDL_Rect* dst, int selected) {
+// Icon rows are main-menu height, so they need the pill asset drawn natively at that height.
+static void drawRowBackground(SDL_Rect* dst, int tall, int light) {
+	(light ? GFX_blitPillLight : GFX_blitPillDark)(tall ? ASSET_WHITE_PILL : ASSET_BUTTON, screen, dst);
+}
+
+static void drawListRow(UiRow* row, SDL_Rect* dst, int selected, int tall) {
 	SDL_Color text_color = uintToColour(THEME_COLOR4_255);
 	char* value_text = row->type == UI_ROW_CYCLE ? row->values[row->value_index] : row->text;
 	int alpha = row->type == UI_ROW_DISABLED ? DISABLED_ALPHA : SDL_ALPHA_OPAQUE;
 
-	if (selected) GFX_blitPillLight(ASSET_BUTTON, screen, dst);
+	if (selected) drawRowBackground(dst, tall, 1);
+	SDL_Rect label_area = *dst;
+	if (tall) {
+		int inset = (dst->h - UI_ICON_SIZE) / 2;
+		if (row->icon) SDL_BlitSurface(row->icon, NULL, screen, &(SDL_Rect){dst->x + inset, dst->y + inset});
+		label_area.x += UI_ICON_SIZE + inset * 2;
+		label_area.w -= UI_ICON_SIZE + inset * 2;
+	}
 	if (value_text) {
 		SDL_Surface* value = TTF_RenderUTF8_Blended(font.tiny, value_text, text_color);
 		SDL_SetSurfaceAlphaMod(value, alpha);
@@ -84,12 +96,12 @@ static void drawListRow(UiRow* row, SDL_Rect* dst, int selected) {
 	if (selected) {
 		int label_width = 0;
 		TTF_SizeUTF8(font.small, row->label, &label_width, NULL);
-		GFX_blitPillDark(ASSET_BUTTON, screen, &(SDL_Rect){dst->x, dst->y, label_width + SCALE1(OPTION_PADDING * 2), dst->h});
+		drawRowBackground(&(SDL_Rect){label_area.x, dst->y, label_width + SCALE1(OPTION_PADDING * 2), dst->h}, tall, 0);
 		text_color = uintToColour(THEME_COLOR5_255);
 	}
 	SDL_Surface* label = TTF_RenderUTF8_Blended(font.small, row->label, text_color);
 	SDL_SetSurfaceAlphaMod(label, alpha);
-	SDL_BlitSurface(label, NULL, screen, &(SDL_Rect){dst->x + SCALE1(OPTION_PADDING), dst->y + (dst->h - label->h) / 2});
+	SDL_BlitSurface(label, NULL, screen, &(SDL_Rect){label_area.x + SCALE1(OPTION_PADDING), dst->y + (dst->h - label->h) / 2});
 	SDL_FreeSurface(label);
 }
 
@@ -117,7 +129,8 @@ static int drawInfoCard(const char* description, Uint32 started_at) {
 
 static int drawMenu(UiMenu* menu, InfoCard* info) {
 	int main_style = menu->style == UI_STYLE_MAIN;
-	int row_height = SCALE1(main_style ? PILL_SIZE : BUTTON_SIZE);
+	int tall = menu->poll != NULL;
+	int row_height = SCALE1(main_style ? PILL_SIZE : tall ? UI_ICON_ROW_HEIGHT : BUTTON_SIZE);
 	const char* description = menu->rows[menu->selected].description;
 	int show_info = info->open && description;
 	SDL_Rect list = {
@@ -131,8 +144,12 @@ static int drawMenu(UiMenu* menu, InfoCard* info) {
 		list.h -= SCALE1(SCROLL_HEIGHT * 2);
 	}
 	int visible_rows = scrolls ? list.h / row_height : menu->row_count;
+	menu->visible = visible_rows;
 	if (menu->selected < menu->start) menu->start = menu->selected;
 	else if (menu->selected >= menu->start + visible_rows) menu->start = menu->selected - visible_rows + 1;
+	// Paging moves start by a whole page, which can overshoot either end.
+	if (menu->start > menu->row_count - visible_rows) menu->start = menu->row_count - visible_rows;
+	if (menu->start < 0) menu->start = 0;
 
 	GFX_clear(screen);
 	int hardware_width = GFX_blitHardwareGroup(screen, show_setting);
@@ -148,7 +165,7 @@ static int drawMenu(UiMenu* menu, InfoCard* info) {
 		SDL_Rect dst = {list.x, list.y + slot * row_height, list.w, row_height};
 		if (main_style) drawMainRow(&menu->rows[index], &dst, index == menu->selected);
 		else if (menu->rows[index].type == UI_ROW_HEADER) drawHeaderRow(&menu->rows[index], &dst);
-		else drawListRow(&menu->rows[index], &dst, index == menu->selected);
+		else drawListRow(&menu->rows[index], &dst, index == menu->selected, tall);
 	}
 
 	if (scrolls) {
@@ -202,6 +219,15 @@ static UiEvent pollMenu(UiMenu* menu, InfoCard* info, int* dirty) {
 		row->value_index++;
 		return UI_CHANGED;
 	}
+	else if (menu->pages && (PAD_justRepeated(BTN_LEFT) || PAD_justRepeated(BTN_RIGHT))) {
+		int page = PAD_justRepeated(BTN_LEFT) ? -menu->visible : menu->visible;
+		int target = menu->selected + page;
+		menu->selected = target < 0 ? 0 : target >= menu->row_count ? menu->row_count - 1 : target;
+		menu->start += page;
+		if (menu->rows[menu->selected].type == UI_ROW_HEADER) stepSelection(menu, page < 0 ? -1 : 1);
+		info->started_at = SDL_GetTicks();
+		*dirty = 1;
+	}
 	else if (row->type == UI_ROW_ACTION && PAD_justPressed(BTN_A)) return UI_ACTION;
 	else if (menu->options_hint && PAD_justPressed(BTN_Y)) return UI_OPTIONS;
 	else if (row->description && PAD_justPressed(BTN_X)) {
@@ -225,6 +251,7 @@ UiEvent ui_menu_run(UiMenu* menu) {
 		PAD_poll();
 		UiEvent event = pollMenu(menu, &info, &dirty);
 		if (event != UI_NONE) return event;
+		if (menu->poll && menu->poll(menu)) dirty = 1;
 		if (menu->status) {
 			const char* status = menu->status();
 			if (strcmp(info.status, status ? status : "")) {

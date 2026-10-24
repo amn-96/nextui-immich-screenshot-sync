@@ -55,7 +55,7 @@ static void test_immich_parse_albums(void) {
 	ImmichAlbum* albums;
 	int count;
 	assert(!immich_parse_albums(json, &albums, &count) && count == 2);
-	assert(!strcmp(albums[0].name, "Brick (NextUI)") && albums[0].asset_count == 42);
+	assert(!strcmp(albums[0].name, "Brick_NextUI") && albums[0].asset_count == 42);
 	assert(!strcmp(albums[1].id, "22222222-2222-4222-8222-222222222222"));
 	free(albums);
 	assert(immich_parse_albums("{\"message\":\"x\"}", &albums, &count) == -1);
@@ -249,11 +249,11 @@ static void test_list_json_round_trip(void) {
 	free(parsed);
 	free(json);
 
-	ImmichAlbum albums[1] = {{"album-1", "Brick (NextUI)", 42}};
+	ImmichAlbum albums[1] = {{"album-1", "Brick_NextUI", 42}};
 	ImmichAlbum* parsed_albums;
 	json = immich_albums_to_json(albums, 1);
 	assert(!immich_parse_albums(json, &parsed_albums, &count) && count == 1);
-	assert(!strcmp(parsed_albums[0].name, "Brick (NextUI)") && parsed_albums[0].asset_count == 42);
+	assert(!strcmp(parsed_albums[0].name, "Brick_NextUI") && parsed_albums[0].asset_count == 42);
 	free(parsed_albums);
 	free(json);
 }
@@ -271,14 +271,14 @@ static void test_cache_lists_and_offline_albums(void) {
 	assert(cache_list_albums(&albums, &count) == 0 && count == 2);
 	free(albums);
 	setenv("FAKE_CURL_FAIL", "1", 1);
-	assert(cache_list_albums(&albums, &count) == 1 && count == 2 && !strcmp(albums[0].name, "Brick (NextUI)"));
+	assert(cache_list_albums(&albums, &count) == 1 && count == 2 && !strcmp(albums[0].name, "Brick_NextUI"));
 	free(albums);
 	cache_clear("/lists");
 	assert(cache_list_albums(&albums, &count) == -1);
 	unsetenv("FAKE_CURL_FAIL");
 
 	assert(!cache_download(CACHE_THUMB, "aaaaaaaa") && cache_exists(CACHE_THUMB, "aaaaaaaa") && cache_bytes() == 3);
-	assert(is_match_album("Brick (NextUI)") && !is_match_album("Holiday"));
+	assert(is_match_album("Brick_NextUI") && !is_match_album("Holiday"));
 }
 
 static void test_full_list_cache_and_slices(void) {

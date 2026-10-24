@@ -70,6 +70,40 @@ static void choose_album_sort(void) {
 	prefs_save();
 }
 
+// Covers ahead of the first visible row to request; more than a screen of icon rows.
+#define COVER_LOOKAHEAD 12
+
+static ImmichAlbum* cover_albums;
+static char* cover_requested;
+
+static int poll_covers(UiMenu* menu) {
+	for (int i = menu->start; i < menu->start + COVER_LOOKAHEAD && i < menu->row_count; i++) {
+		if (cover_requested[i] || !cover_albums[i].cover_id[0]) continue;
+		cover_requested[i] = 1;
+		worker_load_tile(cover_albums[i].cover_id, NULL, UI_ICON_SIZE, UI_ICON_SIZE, PRIO_VISIBLE);
+	}
+	int changed = 0;
+	for (WorkerImage* image; (image = worker_take_image()); free(image)) {
+		for (int i = 0; image->surface && !image->is_view && i < menu->row_count; i++) {
+			if (menu->rows[i].icon || strcmp(cover_albums[i].cover_id, image->asset_id)) continue;
+			menu->rows[i].icon = image->surface;
+			image->surface = NULL;
+			changed = 1;
+		}
+		SDL_FreeSurface(image->surface);
+	}
+	return changed;
+}
+
+// Grid screens drain the shared image queue, so covers still in flight when one opens are lost.
+static void reset_covers(UiRow* rows, int count) {
+	for (int i = 0; i < count; i++) {
+		SDL_FreeSurface(rows[i].icon);
+		rows[i].icon = NULL;
+		cover_requested[i] = 0;
+	}
+}
+
 static void show_immich_albums(void) {
 	ImmichAlbum* albums;
 	int count;
@@ -82,15 +116,19 @@ static void show_immich_albums(void) {
 
 	UiRow* rows = calloc(count, sizeof(*rows));
 	char (*counts)[16] = calloc(count, sizeof(*counts));
-	UiMenu menu = { "Immich Albums", UI_STYLE_LIST, "OPEN", rows, count, .options_hint = "SORT" };
+	cover_albums = albums;
+	cover_requested = calloc(count, 1);
+	UiMenu menu = { "Immich Albums", UI_STYLE_LIST, "OPEN", rows, count, .options_hint = "SORT", .poll = poll_covers, .pages = 1 };
 	// UI_CHANGED never comes from this all-action menu, so it seeds the first sort.
 	for (UiEvent event = UI_CHANGED; event != UI_BACK; event = ui_menu_run(&menu)) {
 		if (event == UI_ACTION) {
 			const char* album_id = albums[menu.selected].id;
 			grid_run(albums[menu.selected].name, &album_id, 1, 0);
+			reset_covers(rows, count);
 			continue;
 		}
 		if (event == UI_OPTIONS) choose_album_sort();
+		reset_covers(rows, count);
 		qsort(albums, count, sizeof(*albums), compare_albums);
 		for (int i = 0; i < count; i++) {
 			snprintf(counts[i], sizeof(*counts), "%d", albums[i].asset_count);
@@ -98,6 +136,9 @@ static void show_immich_albums(void) {
 		}
 		menu.selected = menu.start = 0;
 	}
+	reset_covers(rows, count);
+	worker_drop(PRIO_VISIBLE);
+	free(cover_requested);
 	free(counts);
 	free(rows);
 	free(albums);
@@ -149,7 +190,7 @@ int main(int argc, char* argv[]) {
 		{ UI_ROW_ACTION, "Settings", .description = "Immich account, sync, cache and grid options." },
 	};
 	void (*screens[])(void) = { show_device_album, show_all_screenshots, show_immich_albums, settings_run };
-	UiMenu menu = { "Immich Screenshot Sync", UI_STYLE_MAIN, "OPEN", rows, sizeof(rows) / sizeof(*rows), .status = sync_indicator };
+	UiMenu menu = { "Immich Sync", UI_STYLE_MAIN, "OPEN", rows, sizeof(rows) / sizeof(*rows), .status = sync_indicator };
 	while (ui_menu_run(&menu) == UI_ACTION) {
 		// This Device runs onboarding, which explains what to do without a server.
 		if (menu.selected > 0 && menu.selected < 3 && !prefs.api_key[0]) ui_alert("Sign in first (Settings > Immich Settings)");

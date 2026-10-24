@@ -5,7 +5,7 @@
 
 #define PREFS_MAX_EXTRA_ALBUMS 32
 #define PREFS_ID_LEN 40
-#define DEFAULT_MATCH_KEY "(NextUI)"
+#define DEFAULT_MATCH_KEY "_NextUI"
 
 // Persisted as key=value lines in $SHARED_USERDATA_PATH/Immich/prefs.txt.
 // Users may hand-edit server_url/api_key there instead of logging in on device.

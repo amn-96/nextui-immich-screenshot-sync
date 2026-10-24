@@ -2,7 +2,7 @@
 # Daemon control and the NextUI hook for every phase. Run from the pak as `install` or `uninstall`, which
 # copy it into each hook dir; NextUI then runs the copies with HOOK_CATEGORY set to the dir name.
 # NextUI exports SDCARD_PATH, PLATFORM and the userdata paths to paks and hooks.
-PAK="$SDCARD_PATH/Tools/$PLATFORM/Immich Screenshot Sync.pak"
+PAK="$SDCARD_PATH/Tools/$PLATFORM/Immich Sync.pak"
 [ -d "$PAK" ] || exit 0
 
 PREFS_DIR="$SHARED_USERDATA_PATH/Immich"
