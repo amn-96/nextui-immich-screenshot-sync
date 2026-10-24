@@ -185,6 +185,8 @@ int immich_parse_albums(const char* json, ImmichAlbum** albums, int* count) {
 		copy_json_string((*albums)[i].id, ID_LEN, album, "id");
 		copy_json_string((*albums)[i].name, sizeof((*albums)[i].name), album, "albumName");
 		(*albums)[i].asset_count = json_int(album, "assetCount");
+		copy_json_string((*albums)[i].newest_photo_at, sizeof((*albums)[i].newest_photo_at), album, "endDate");
+		copy_json_string((*albums)[i].updated_at, sizeof((*albums)[i].updated_at), album, "lastModifiedAssetTimestamp");
 	}
 	cJSON_Delete(root);
 	return 0;
@@ -224,6 +226,8 @@ char* immich_albums_to_json(const ImmichAlbum* albums, int count) {
 		cJSON_AddStringToObject(album, "id", albums[i].id);
 		cJSON_AddStringToObject(album, "albumName", albums[i].name);
 		cJSON_AddNumberToObject(album, "assetCount", albums[i].asset_count);
+		cJSON_AddStringToObject(album, "endDate", albums[i].newest_photo_at);
+		cJSON_AddStringToObject(album, "lastModifiedAssetTimestamp", albums[i].updated_at);
 	}
 	return take_json_string(root);
 }

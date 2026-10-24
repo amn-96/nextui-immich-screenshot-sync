@@ -191,6 +191,7 @@ static void force_sync(void) {
 	}
 	char summary[512];
 	if (progress.state == SYNC_FAILED) snprintf(summary, sizeof(summary), "%s", progress.error);
+	else if (progress.state == SYNC_IDLE) snprintf(summary, sizeof(summary), "The background daemon is already syncing");
 	else snprintf(summary, sizeof(summary), "%s\nUploaded %d\nAlready on server %d\nFailed %d%s%s",
 		progress.state == SYNC_CANCELLED ? "Sync cancelled" : "Sync complete", progress.uploaded, progress.existing,
 		progress.failed, progress.failed ? "\n" : "", progress.failed ? progress.error : "");
@@ -205,9 +206,9 @@ static void sync_menu(void) {
 		{ UI_ROW_ACTION, "Force Sync", .description = "Upload new screenshots from this device to Immich now." },
 		{ UI_ROW_ACTION, "Reset Sync Settings", .description = "Reset sync album and the match key. Your data is not deleted." },
 		{ UI_ROW_CYCLE, "Daemon Autostart", .values = ON_OFF, .value_count = 2, .value_index = prefs.daemon_autostart,
-			.description = "Start the sync daemon at boot. Not implemented yet." },
+			.description = "Run a background daemon from boot that uploads new screenshots as they appear. Pauses during sleep and games." },
 		{ UI_ROW_CYCLE, "Background Sync", .values = ON_OFF, .value_count = 2, .value_index = prefs.background_sync,
-			.description = "Sync screenshots in the background while playing. Not implemented yet." },
+			.description = "Keep uploading while a game is running. Off pauses the daemon until you exit the game." },
 		{ UI_ROW_HEADER, "Immich Sync Settings for This Device" },
 		{ UI_ROW_DISABLED, "Synced Album", album_text, .description = "The Immich album screenshots upload to. Fixed after setup; use Reset Sync Settings to change it." },
 		{ UI_ROW_DISABLED, "Album Match Key", .description = "Albums ending in this show in All Screenshots. Fixed after setup." },
@@ -224,6 +225,11 @@ static void sync_menu(void) {
 			if (ui_confirm("Reset sync settings?\n\nYour data is not deleted. This Device will ask for an album name again.")) prefs_reset_sync();
 		}
 		else {
+			int autostart = rows[AUTOSTART_ROW].value_index;
+			if (autostart != prefs.daemon_autostart && system(autostart ? "./immich-sync.sh install" : "./immich-sync.sh uninstall")) {
+				ui_alert("Could not change daemon autostart");
+				rows[AUTOSTART_ROW].value_index = prefs.daemon_autostart;
+			}
 			prefs.daemon_autostart = rows[AUTOSTART_ROW].value_index;
 			prefs.background_sync = rows[BACKGROUND_ROW].value_index;
 			prefs_save();

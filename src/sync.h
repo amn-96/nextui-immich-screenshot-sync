@@ -14,8 +14,12 @@ typedef struct {
 } SyncStatus;
 
 // Uploads new screenshots from /mnt/SDCARD/Screenshots to the album prefs.album_id. Needs onboarding and a
-// login. Blocking, no UI: a future `immich.elf --sync` daemon calls this directly. 0 unless failed or cancelled.
+// login. Blocking, no UI: the sync daemon calls this directly. Another process (app or daemon) holding the sync
+// lock makes it skip with SYNC_IDLE. 0 unless failed or cancelled.
 int sync_run(void);
+
+// Optional, polled before every file and batch by sync_run; nonzero cancels the run.
+extern int (*sync_should_stop)(void);
 
 // sync_run on a detached thread; does nothing if one is already running.
 void sync_start(void);

@@ -11,6 +11,7 @@
 #include "../src/prefs.c"
 #include "../src/cache.c"
 #include "../src/sync.c"
+#include "../src/daemon.c"
 
 static char* load_fixture(const char* name) {
 	char path[256];
@@ -562,6 +563,33 @@ static void test_sync_batches_and_failures(void) {
 	unsetenv("FAKE_DUPLICATE_SHA1");
 }
 
+static void test_stat_state_and_sync_lock(void) {
+	assert(stat_state("812 (keymon.elf) T 1 812 812 0") == 'T');
+	assert(stat_state("9 (odd) name) S 1") == 'S');
+
+	use_fresh_userdata();
+	strcpy(prefs.album_id, "11111111-1111-4111-8111-111111111111");
+	char lock_path[320];
+	prefs_file(lock_path, sizeof(lock_path), "sync.lock");
+	int other_process_fd = open(lock_path, O_WRONLY | O_CREAT, 0644);
+	assert(!flock(other_process_fd, LOCK_EX | LOCK_NB));
+	SyncStatus progress;
+	assert(sync_run() == 0);
+	sync_status(&progress);
+	assert(progress.state == SYNC_IDLE);
+	close(other_process_fd);
+}
+
+static void test_daemon_progress(void) {
+	use_fresh_userdata();
+	int done = 0, total = 0;
+	assert(!daemon_progress(&done, &total));
+	write_status(1, 3, 12);
+	assert(daemon_progress(&done, &total) && done == 3 && total == 12);
+	write_status(0, 0, 0);
+	assert(!daemon_progress(&done, &total));
+}
+
 int main(void) {
 	test_prefs_round_trip();
 	test_immich_parse_albums();
@@ -581,6 +609,8 @@ int main(void) {
 	test_scan_detects_changes();
 	test_sync_run_uploads_and_adds_duplicates();
 	test_sync_batches_and_failures();
+	test_stat_state_and_sync_lock();
+	test_daemon_progress();
 	puts("all tests passed");
 	return 0;
 }

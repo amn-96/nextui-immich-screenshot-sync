@@ -23,7 +23,7 @@ $(CACERT):
 pak: all $(CACERT)
 	rm -rf "$(PAK)"
 	mkdir -p "$(PAK)"
-	cp pak/launch.sh pak/pak.json $(ELF) $(CACERT) "$(PAK)/"
+	cp pak/launch.sh pak/pak.json pak/immich-sync.sh $(ELF) $(CACERT) "$(PAK)/"
 
 shell:
 	$(call RUN,-it) /bin/bash

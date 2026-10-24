@@ -165,7 +165,17 @@ static int drawMenu(UiMenu* menu, InfoCard* info) {
 		hints[2] = "A";
 		hints[3] = menu->confirm_hint;
 	}
-	if (description) GFX_blitButtonGroup((char*[]){ "X", "INFO", NULL }, 0, screen, 0);
+	char* left_hints[5] = {0};
+	int left_count = 0;
+	if (description) {
+		left_hints[left_count++] = "X";
+		left_hints[left_count++] = "INFO";
+	}
+	if (menu->options_hint) {
+		left_hints[left_count++] = "Y";
+		left_hints[left_count++] = menu->options_hint;
+	}
+	if (left_count) GFX_blitButtonGroup(left_hints, 0, screen, 0);
 	GFX_blitButtonGroup(hints, 1, screen, 1);
 	GFX_flip(screen);
 	return scrolling;
@@ -193,6 +203,7 @@ static UiEvent pollMenu(UiMenu* menu, InfoCard* info, int* dirty) {
 		return UI_CHANGED;
 	}
 	else if (row->type == UI_ROW_ACTION && PAD_justPressed(BTN_A)) return UI_ACTION;
+	else if (menu->options_hint && PAD_justPressed(BTN_Y)) return UI_OPTIONS;
 	else if (row->description && PAD_justPressed(BTN_X)) {
 		info->open = !info->open;
 		info->started_at = SDL_GetTicks();

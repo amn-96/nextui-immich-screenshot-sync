@@ -1,11 +1,14 @@
 #include <ctype.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "cache.h"
 #include "immich.h"
@@ -31,6 +34,12 @@ typedef struct {
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static SyncStatus status;
 static volatile int cancelled;
+int (*sync_should_stop)(void);
+
+static int stop_requested(void) {
+	if (!cancelled && sync_should_stop && sync_should_stop()) cancelled = 1;
+	return cancelled;
+}
 
 typedef struct {
 	uint32_t state[5];
@@ -211,7 +220,7 @@ static void sync_batch(SyncEntry** batch, int count) {
 	for (int i = 0; i < count; i++) {
 		set_current(batch[i]->path);
 		if (!accept[i]) strcpy(batch[i]->asset_id, duplicate_ids[i]);
-		else if (!cancelled) {
+		else if (!stop_requested()) {
 			is_new[i] = immich_upload(batch[i]->path, batch[i]->asset_id) == 0;
 			if (!is_new[i]) resolve(&status.failed, batch[i], immich_error());
 		}
@@ -235,6 +244,13 @@ static void sync_batch(SyncEntry** batch, int count) {
 
 int sync_run(void) {
 	if (!prefs.album_id[0]) return end_run(SYNC_FAILED, "Set up This Device first");
+	char lock_path[320];
+	snprintf(lock_path, sizeof(lock_path), "%s/sync.lock", prefs_dir());
+	int lock_fd = open(lock_path, O_WRONLY | O_CREAT, 0644);
+	if (flock(lock_fd, LOCK_EX | LOCK_NB)) {
+		close(lock_fd);
+		return end_run(SYNC_IDLE, NULL);
+	}
 	immich_untracked = 1;
 	cancelled = 0;
 
@@ -251,10 +267,10 @@ int sync_run(void) {
 	status = (SyncStatus){ .state = SYNC_RUNNING, .total = pending_count };
 	pthread_mutex_unlock(&lock);
 
-	for (int start = 0; start < pending_count && !cancelled; start += BATCH_SIZE) {
+	for (int start = 0; start < pending_count && !stop_requested(); start += BATCH_SIZE) {
 		SyncEntry* batch[BATCH_SIZE];
 		int count = 0;
-		for (int i = start; i < pending_count && i < start + BATCH_SIZE && !cancelled; i++) {
+		for (int i = start; i < pending_count && i < start + BATCH_SIZE && !stop_requested(); i++) {
 			SyncEntry* entry = pending[i];
 			set_current(entry->path);
 			if (!entry->sha1[0] && hash_file(entry->path, entry->sha1)) resolve(&status.failed, entry, "cannot read file");
@@ -265,6 +281,7 @@ int sync_run(void) {
 	}
 	free(pending);
 	free(scanned.entries);
+	close(lock_fd);
 	return end_run(cancelled ? SYNC_CANCELLED : SYNC_DONE, NULL);
 }
 

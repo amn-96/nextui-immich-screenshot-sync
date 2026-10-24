@@ -7,7 +7,7 @@
 // HEADER rows are unselectable subheadings; a menu must not start on one.
 typedef enum { UI_ROW_ACTION, UI_ROW_CYCLE, UI_ROW_READOUT, UI_ROW_DISABLED, UI_ROW_HEADER } UiRowType;
 typedef enum { UI_STYLE_MAIN, UI_STYLE_LIST } UiStyle;
-typedef enum { UI_NONE, UI_BACK, UI_ACTION, UI_CHANGED } UiEvent;
+typedef enum { UI_NONE, UI_BACK, UI_ACTION, UI_CHANGED, UI_OPTIONS } UiEvent;
 
 typedef struct {
 	UiRowType type;
@@ -28,6 +28,7 @@ typedef struct {
 	int selected;
 	int start;                   // first visible row, maintained by drawing
 	const char* (*status)(void); // polled every frame; text drawn left of the hardware group, NULL for none
+	char* options_hint;          // label for Y, which then returns UI_OPTIONS; NULL disables Y
 } UiMenu;
 
 // Shared with screens that draw their own body (grid.c): the display and the volume/brightness overlay state.
@@ -41,7 +42,7 @@ void ui_init(SDL_Surface* screen);
 void ui_draw_title(const char* title, int hardware_width);
 
 // Blocks until the user acts. ui_menu_run returns UI_ACTION (menu->selected was activated),
-// UI_CHANGED (menu->selected cycled to a new value_index) or UI_BACK.
+// UI_CHANGED (menu->selected cycled to a new value_index), UI_OPTIONS or UI_BACK.
 UiEvent ui_menu_run(UiMenu* menu);
 
 void ui_flash(char* message);    // draws once, does not wait

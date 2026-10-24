@@ -19,6 +19,7 @@ typedef struct {
 	int cache_limit_mb;          // 0 = unlimited
 	int daemon_autostart;
 	int background_sync;
+	int album_sort;              // ALBUM_SORT_*
 	int grid_mode;               // GRID_STANDARD, GRID_DENSE, GRID_CUSTOM
 	int grid_custom_cols;        // 1..GRID_MAX, used when grid_mode == GRID_CUSTOM
 	int grid_custom_rows;
@@ -28,6 +29,7 @@ typedef struct {
 
 extern Prefs prefs;
 
+enum { ALBUM_SORT_UPDATED, ALBUM_SORT_NEWEST, ALBUM_SORT_NAME, ALBUM_SORT_COUNT, ALBUM_SORT_MODES };
 enum { GRID_STANDARD, GRID_DENSE, GRID_CUSTOM };
 #define GRID_MAX 12
 void prefs_grid_size(int* cols, int* rows);

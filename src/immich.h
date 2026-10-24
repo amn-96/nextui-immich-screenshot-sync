@@ -11,6 +11,8 @@ typedef struct {
 	char id[40];
 	char name[128];
 	int asset_count;
+	char newest_photo_at[32];    // ISO 8601, "" for an empty album
+	char updated_at[32];         // when assets were last added or changed
 } ImmichAlbum;
 
 typedef struct {
