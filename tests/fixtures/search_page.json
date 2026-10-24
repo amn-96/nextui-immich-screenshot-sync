@@ -1,0 +1,4 @@
+{"albums":{"count":0,"facets":[],"items":[],"total":0},
+ "assets":{"count":2,"facets":[],"nextCursor":"abc123cursor","nextPage":null,"total":2,"items":[
+  {"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","originalFileName":"Screenshot_1.png","fileCreatedAt":"2026-10-01T12:00:00.000Z","width":1024,"height":768,"exifInfo":{"fileSizeInByte":123456}},
+  {"id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb","originalFileName":"Screenshot_2.png","fileCreatedAt":"2026-09-30T08:30:00.000Z","width":1024,"height":768}]}}

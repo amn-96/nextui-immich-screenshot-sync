@@ -1,0 +1,41 @@
+#!/bin/sh
+# Stand-in for curl: reads the -K config, serves tests/fixtures/<mapped file>, logs the config.
+url=$(sed -n 's/^url = "\(.*\)"$/\1/p' "$2")
+output=$(sed -n 's/^output = "\(.*\)"$/\1/p' "$2")
+cp "$2" "$FAKE_CURL_LOG"
+[ -n "$FAKE_CURL_ALL" ] && cat "$2" >> "$FAKE_CURL_ALL"
+fixtures=$(dirname "$0")/../fixtures
+case "$url" in
+  */auth/login) body=login.json; code=201 ;;
+  */api-keys) body=api_key.json; code=201 ;;
+  */search/metadata) grep -q abc123cursor "$2" && FAKE_SEARCH_FIXTURE=search_last_page.json; body=${FAKE_SEARCH_FIXTURE:-search_page.json}; code=200 ;;
+  */bulk-upload-check)
+    if [ -n "$FAKE_DUPLICATE_SHA1" ] && [ "$FAKE_CURL_FAIL" != 1 ]; then
+      # Rejects the check whose checksum is FAKE_DUPLICATE_SHA1, accepts the rest.
+      printf '{"results":[' > "$output"
+      sed -n 's/^data-binary = "\(.*\)"$/\1/p' "$2" | sed 's/\\"/"/g' | grep -o '"id":"[^"]*","checksum":"[^"]*"' | {
+        sep=
+        while IFS= read -r pair; do
+          id=${pair#\"id\":\"}; id=${id%%\"*}; sum=${pair##*\"checksum\":\"}; sum=${sum%\"}
+          if [ "$sum" = "$FAKE_DUPLICATE_SHA1" ]; then
+            printf '%s{"id":"%s","action":"reject","reason":"duplicate","assetId":"dddddddd-dddd-4ddd-8ddd-dddddddddddd"}' "$sep" "$id" >> "$output"
+          else
+            printf '%s{"id":"%s","action":"accept"}' "$sep" "$id" >> "$output"
+          fi
+          sep=,
+        done
+      }
+      printf ']}' >> "$output"; printf 200; exit 0
+    fi
+    body=bulk_check.json; code=200 ;;
+  */albums/*/assets) body=albums.json; code=200 ;;
+  */albums) body=albums.json; code=200 ;;
+  */original) if [ "$FAKE_CURL_FAIL" = 1 ]; then body=error.json; code=401; else printf 'ORIGINAL-BYTES' > "$output"; printf 200; exit 0; fi ;;
+  */thumbnail*) printf 'IMG' > "$output"; printf 200; exit 0 ;;
+  */assets) body=asset_created.json; code=201 ;;
+  */server/ping) body=albums.json; code=200 ;;
+  *) body=error.json; code=401 ;;
+esac
+[ "$FAKE_CURL_FAIL" = 1 ] && { body=error.json; code=401; }
+cp "$fixtures/$body" "$output"
+printf %s "$code"

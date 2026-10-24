@@ -1,0 +1,9 @@
+[submodule "vendor/NextUI"]
+	path = vendor/NextUI
+	url = https://github.com/LoveRetro/NextUI
+[submodule "vendor/cJSON"]
+	path = vendor/cJSON
+	url = https://github.com/DaveGamble/cJSON
+[submodule "vendor/libwebp"]
+	path = vendor/libwebp
+	url = https://github.com/webmproject/libwebp

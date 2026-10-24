@@ -1,0 +1,3 @@
+{"results":[
+ {"id":"/shots/new.png","action":"accept"},
+ {"id":"/shots/old.png","action":"reject","reason":"duplicate","assetId":"dddddddd-dddd-4ddd-8ddd-dddddddddddd"}]}
