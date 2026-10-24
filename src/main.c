@@ -113,13 +113,13 @@ int main(int argc, char* argv[]) {
 		{ UI_ROW_ACTION, "This Device", .description = "Browse the album your screenshots sync to." },
 		{ UI_ROW_ACTION, "All Screenshots", .description = "Every screenshot album plus any extra albums you chose." },
 		{ UI_ROW_ACTION, "Other Albums", .description = "Browse any other album on your Immich server." },
-		{ UI_ROW_ACTION, "Settings", .description = "Login, sync, cache and grid options." },
+		{ UI_ROW_ACTION, "Settings", .description = "Immich account, sync, cache and grid options." },
 	};
 	void (*screens[])(void) = { show_device_album, show_all_screenshots, show_other_albums, settings_run };
-	UiMenu menu = { "Immich", UI_STYLE_MAIN, "OPEN", rows, sizeof(rows) / sizeof(*rows), .status = sync_indicator };
+	UiMenu menu = { "Immich Screenshot Sync", UI_STYLE_MAIN, "OPEN", rows, sizeof(rows) / sizeof(*rows), .status = sync_indicator };
 	while (ui_menu_run(&menu) == UI_ACTION) {
 		// This Device runs onboarding, which explains what to do without a server.
-		if (menu.selected > 0 && menu.selected < 3 && !prefs.api_key[0]) ui_alert("Sign in first (Settings > Login)");
+		if (menu.selected > 0 && menu.selected < 3 && !prefs.api_key[0]) ui_alert("Sign in first (Settings > Immich Settings)");
 		else screens[menu.selected]();
 	}
 

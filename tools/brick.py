@@ -55,6 +55,6 @@ if __name__ == "__main__":
     elif command == "press": press(args)
     elif command == "quit": ssh("killall immich.elf; true")
     elif command == "launch":
-        ssh("cd /mnt/SDCARD/Tools/tg5040/Immich.pak && (LOGS_PATH=/mnt/SDCARD/.userdata/tg5040/logs "
+        ssh("cd \"/mnt/SDCARD/Tools/tg5040/Immich Screenshot Sync.pak\" && (LOGS_PATH=/mnt/SDCARD/.userdata/tg5040/logs "
             "SHARED_USERDATA_PATH=/mnt/SDCARD/.userdata/shared nohup ./launch.sh >/dev/null 2>&1 &)")
         time.sleep(2)

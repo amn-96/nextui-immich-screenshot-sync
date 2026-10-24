@@ -28,15 +28,72 @@ static char* text_or_unset(char* text) {
 	return text[0] ? text : "Not set";
 }
 
-static void login_menu(void) {
+typedef struct {
+	char user[128], version[32], device_count[16], matched_count[16], matched_size[16];
+} AccountText;
+
+// Sum of original sizes across the match albums, from the cached listing when there is one.
+static long long matched_bytes(const ImmichAlbum* albums, int album_count) {
+	const char** album_ids = malloc(album_count * sizeof(*album_ids));
+	int id_count = 0;
+	for (int i = 0; i < album_count; i++)
+		if (is_match_album(albums[i].name)) album_ids[id_count++] = albums[i].id;
+	char key[64];
+	ImmichAsset* assets;
+	int count;
+	long long bytes = -1;
+	cache_list_key(album_ids, id_count, key, sizeof(key));
+	if (!cache_load_assets(key, &assets, &count) || !cache_refresh_assets(album_ids, id_count, key, &assets, &count)) {
+		bytes = 0;
+		for (int i = 0; i < count; i++) bytes += assets[i].size_bytes;
+		free(assets);
+	}
+	free(album_ids);
+	return bytes;
+}
+
+// Appends the readouts the server can answer; rows must have room for six more.
+static int add_account_rows(UiRow* rows, int count, AccountText* text) {
+	if (!prefs.api_key[0]) return count;
+	ui_flash("Loading...");
+	int start = count;
+	rows[count++] = (UiRow){ UI_ROW_HEADER, "Immich Account" };
+	if (!immich_server_version(text->version)) rows[count++] = (UiRow){ UI_ROW_DISABLED, "Server Version", text->version };
+	if (!immich_user_name(text->user)) rows[count++] = (UiRow){ UI_ROW_DISABLED, "Immich User", text->user };
+	ImmichAlbum* albums;
+	int album_count, matched = 0;
+	if (cache_list_albums(&albums, &album_count) >= 0) {
+		for (int i = 0; i < album_count; i++) {
+			if (!strcmp(albums[i].id, prefs.album_id)) {
+				snprintf(text->device_count, sizeof(text->device_count), "%d", albums[i].asset_count);
+				rows[count++] = (UiRow){ UI_ROW_DISABLED, "Screenshots (This Device)", text->device_count };
+			}
+			if (is_match_album(albums[i].name)) matched += albums[i].asset_count;
+		}
+		snprintf(text->matched_count, sizeof(text->matched_count), "%d", matched);
+		rows[count++] = (UiRow){ UI_ROW_DISABLED, "Matched Screenshots", text->matched_count,
+			.description = "Screenshots in every album ending in the match key." };
+		long long bytes = matched_bytes(albums, album_count);
+		if (bytes >= 0) {
+			format_used(text->matched_size, sizeof(text->matched_size), bytes);
+			rows[count++] = (UiRow){ UI_ROW_DISABLED, "Matched Screenshot Storage", text->matched_size,
+				.description = "Original file size of every matched screenshot on the server." };
+		}
+		free(albums);
+	}
+	return count == start + 1 ? start : count;
+}
+
+static void immich_menu(void) {
 	char password[128] = "";
-	UiRow rows[] = {
+	AccountText text;
+	UiRow rows[10] = {
 		{ UI_ROW_ACTION, "Server URL", .description = "Address of your Immich server, e.g. https://photos.example.com." },
 		{ UI_ROW_ACTION, "Email", .description = "Immich account email used to sign in." },
 		{ UI_ROW_ACTION, "Password", .description = "Used once to sign in. Only an API key is stored on the device." },
 		{ UI_ROW_ACTION, "Sign In", .description = "Log in and create the API key this device uses from now on." },
 	};
-	UiMenu menu = { "Login", UI_STYLE_LIST, "OKAY", rows, ARRAY_LEN(rows) };
+	UiMenu menu = { "Immich Settings", UI_STYLE_LIST, "OKAY", rows, add_account_rows(rows, 4, &text) };
 	for (;;) {
 		rows[0].text = text_or_unset(prefs.server_url);
 		rows[1].text = text_or_unset(prefs.user_email);
@@ -48,7 +105,10 @@ static void login_menu(void) {
 		else if (menu.selected == 2) ui_text_input("Password", "", password, sizeof(password));
 		else {
 			ui_flash("Signing in...");
-			if (immich_login(prefs.server_url, prefs.user_email, password) == 0) ui_alert("Signed in");
+			if (immich_login(prefs.server_url, prefs.user_email, password) == 0) {
+				ui_alert("Signed in");
+				menu.row_count = add_account_rows(rows, 4, &text);
+			}
 			else ui_alert((char*)immich_error());
 		}
 	}
@@ -60,12 +120,12 @@ int onboarding_run(void) {
 	if (!ui_confirm("Screenshots on this device upload to an Immich album named \"<name> <match key>\".\n\n"
 		"Albums ending in the same match key also show in All Screenshots.")) return 0;
 	if (!prefs.api_key[0]) {
-		ui_alert("Sync needs an Immich server.\n\nSign in under Settings > Login. No server yet? See immich.app to set one up.");
+		ui_alert("Sync needs an Immich server.\n\nSign in under Settings > Immich Settings. No server yet? See immich.app to set one up.");
 		return 0;
 	}
 	ui_flash("Checking server...");
 	if (immich_ping()) {
-		ui_alert("Can't reach your Immich server.\n\nCheck Wi-Fi and the Server URL in Settings > Login.");
+		ui_alert("Can't reach your Immich server.\n\nCheck Wi-Fi and the Server URL in Settings > Immich Settings.");
 		return 0;
 	}
 
@@ -255,7 +315,7 @@ void settings_run(void) {
 	char* grid_modes[] = { "Standard (4x3)", "Dense (8x6)", "Custom" };
 	char* grid_counts[GRID_MAX] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" };
 	UiRow rows[] = {
-		{ UI_ROW_ACTION, "Login" },
+		{ UI_ROW_ACTION, "Immich Settings" },
 		{ UI_ROW_ACTION, "Sync Settings" },
 		{ UI_ROW_ACTION, "Cache" },
 		{ UI_ROW_ACTION, "Screenshot Albums", .description = "Pick extra albums to include in All Screenshots." },
@@ -266,7 +326,7 @@ void settings_run(void) {
 		{ UI_ROW_CYCLE, "Vertical", .values = grid_counts, .value_count = GRID_MAX, .value_index = prefs.grid_custom_rows - 1,
 			.description = "Custom grid: rows per page." },
 	};
-	void (*screens[])(void) = { login_menu, sync_menu, cache_menu, albums_menu };
+	void (*screens[])(void) = { immich_menu, sync_menu, cache_menu, albums_menu };
 	UiMenu menu = { "Settings", UI_STYLE_LIST, "OPEN", rows, 0 };
 	for (;;) {
 		menu.row_count = prefs.grid_mode == GRID_CUSTOM ? SETTINGS_ROW_COUNT : GRID_COLS_ROW;

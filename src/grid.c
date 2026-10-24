@@ -16,6 +16,7 @@
 
 #define GAP SCALE1(2)
 #define TILE_CACHE_PAGES 3
+#define SCROLL_TAU_MS 30.0f
 #define MAX_SCALE 4.0f
 #define ZOOM_STEP 0.1f
 #define ZOOM_REPEAT_MS 250
@@ -43,17 +44,20 @@ typedef struct {
 	int album_count;
 	int screenshots;             // downloaded originals belong in Screenshots
 	int device;                  // assets is the server list plus the local-only screenshots
-	int cols, rows, page_size;
+	int cols, rows;
 	SDL_Rect area;
-	int tile_w, tile_h;
+	int tile_w, tile_h, row_pitch;
 	ListRequest list;
 	ImmichAsset* server;         // device only: the latest server list
 	int server_count;
-	ImmichAsset* assets;         // the whole album set, pages are slices of it
+	ImmichAsset* assets;         // the whole album set
 	unsigned char* flags;        // FLAG_* of each asset
 	int total;
-	int page, cell;
-	Tile* tiles;                 // LRU of scaled thumbnails, TILE_CACHE_PAGES pages worth
+	int selected;
+	int top_row;                 // first visible row, the scroll target
+	float scroll_offset;         // pixels the view still lags behind top_row, decays to 0
+	unsigned scroll_tick;
+	Tile* tiles;                 // LRU of scaled thumbnails, TILE_CACHE_PAGES screens worth
 	int tile_capacity;
 	unsigned tick;
 } Grid;
@@ -107,21 +111,29 @@ static void draw_pill_text(const char* text, int x, int y, int max_width) {
 	SDL_FreeSurface(rendered);
 }
 
-static int page_total(Grid* grid) {
-	int pages = (grid->total + grid->page_size - 1) / grid->page_size;
-	return pages ? pages : 1;
-}
-
-static int current_index(Grid* grid) {
-	return grid->page * grid->page_size + grid->cell;
-}
-
 static ImmichAsset* current_asset(Grid* grid) {
-	return &grid->assets[current_index(grid)];
+	return &grid->assets[grid->selected];
 }
 
-static const ImmichAsset* page_items(Grid* grid, int page, int* count) {
-	return immich_page_slice(grid->assets, grid->total, page, grid->page_size, count);
+static float clamp(float value, float low, float high) {
+	return value < low ? low : value > high ? high : value;
+}
+
+static int total_rows(Grid* grid) {
+	return (grid->total + grid->cols - 1) / grid->cols;
+}
+
+static int clamp_top(Grid* grid, int top) {
+	int max_top = total_rows(grid) > grid->rows ? total_rows(grid) - grid->rows : 0;
+	return clamp(top, 0, max_top);
+}
+
+// The row closest to top that shows the selection and keeps the last row bottom-aligned.
+static int top_for_selection(Grid* grid, int top) {
+	int row = grid->selected / grid->cols;
+	if (row < top) top = row;
+	if (row >= top + grid->rows) top = row - grid->rows + 1;
+	return clamp_top(grid, top);
 }
 
 static Tile* tile_find(Grid* grid, const char* asset_id) {
@@ -155,33 +167,33 @@ static void tile_request(Grid* grid, int index, Priority priority) {
 	worker_load_tile(asset->id, on_disk ? path : NULL, grid->tile_w, grid->tile_h, priority);
 }
 
-// Idempotent: queues the tiles of the current page and its neighbours.
-static void prime(Grid* grid) {
-	for (int offset = 0; offset < 3; offset++) {
-		int page = grid->page + (offset == 2 ? -1 : offset);
-		if (page < 0 || page >= page_total(grid)) continue;
-		int count;
-		page_items(grid, page, &count);
-		for (int i = 0; i < count; i++) tile_request(grid, page * grid->page_size + i, offset ? PRIO_PREFETCH : PRIO_VISIBLE);
+// Idempotent: queues the visible rows and a screen of rows above and below.
+static void request_tiles(Grid* grid) {
+	for (int row = grid->top_row - grid->rows; row < grid->top_row + grid->rows * 2; row++) {
+		if (row < 0 || row >= total_rows(grid)) continue;
+		int visible = row >= grid->top_row && row < grid->top_row + grid->rows;
+		for (int index = row * grid->cols; index < (row + 1) * grid->cols && index < grid->total; index++)
+			tile_request(grid, index, visible ? PRIO_VISIBLE : PRIO_PREFETCH);
 	}
 }
 
-static void set_page(Grid* grid, int page) {
-	worker_drop(PRIO_VISIBLE);
-	worker_drop(PRIO_PREFETCH);
-	for (int i = 0; i < grid->tile_capacity; i++)
-		if (grid->tiles[i].state == TILE_PENDING) grid->tiles[i].state = TILE_EMPTY;
-	grid->page = page;
-	int count;
-	page_items(grid, page, &count);
-	if (grid->cell >= count) grid->cell = count ? count - 1 : 0;
-	prime(grid);
+// Scrolls without a jump: the view keeps its on-screen position and chases the new top.
+static void set_top(Grid* grid, int top) {
+	if (top == grid->top_row) return;
+	if (abs(top - grid->top_row) >= grid->rows) {
+		worker_drop(PRIO_VISIBLE);
+		worker_drop(PRIO_PREFETCH);
+		for (int i = 0; i < grid->tile_capacity; i++)
+			if (grid->tiles[i].state == TILE_PENDING) grid->tiles[i].state = TILE_EMPTY;
+	}
+	grid->scroll_offset += (grid->top_row - top) * grid->row_pitch;
+	grid->top_row = top;
+	request_tiles(grid);
 }
 
 static void set_index(Grid* grid, int index) {
-	int page = index / grid->page_size;
-	grid->cell = index % grid->page_size;
-	if (page != grid->page) set_page(grid, page);
+	grid->selected = index;
+	set_top(grid, top_for_selection(grid, grid->top_row));
 }
 
 static void refresh_flags(Grid* grid) {
@@ -195,7 +207,7 @@ static void refresh_flags(Grid* grid) {
 
 // Takes ownership of assets, keeping the selected asset selected when it is still there.
 static void set_assets(Grid* grid, ImmichAsset* assets, int count) {
-	int index = current_index(grid);
+	int index = grid->selected;
 	if (index >= count) index = count ? count - 1 : 0;
 	for (int i = 0; grid->total && i < count; i++) {
 		if (!strcmp(assets[i].id, current_asset(grid)->id)) {
@@ -208,10 +220,10 @@ static void set_assets(Grid* grid, ImmichAsset* assets, int count) {
 	grid->assets = assets;
 	grid->total = count;
 	grid->flags = malloc(count + 1);
-	grid->page = index / grid->page_size;
-	grid->cell = index % grid->page_size;
+	grid->selected = index;
 	refresh_flags(grid);
-	prime(grid);
+	set_top(grid, top_for_selection(grid, grid->top_row));
+	request_tiles(grid);
 }
 
 // After originals appeared or vanished: recomputes the flags and, in device mode, the local-only entries.
@@ -368,40 +380,38 @@ static void draw_grid(Grid* grid) {
 	GFX_clear(screen);
 	int hardware_width = GFX_blitHardwareGroup(screen, show_setting);
 	char indicator[32];
-	snprintf(indicator, sizeof(indicator), "%d/%d", grid->page + 1, page_total(grid));
+	snprintf(indicator, sizeof(indicator), "%d/%d", grid->total ? grid->selected + 1 : 0, grid->total);
 	int indicator_width = pill_width(indicator);
 	int header_right = screen->w - SCALE1(PADDING) - hardware_width - SCALE1(PADDING / 2);
 	draw_pill_text(indicator, header_right - indicator_width, SCALE1(PADDING), indicator_width);
 
 	ui_draw_title(grid->title, screen->w - header_right + indicator_width + SCALE1(PADDING));
 
-	int count;
-	const ImmichAsset* items = page_items(grid, grid->page, &count);
 	if (!grid->total) {
 		ListState state = worker_list_state(&grid->list);
 		GFX_blitMessage(font.large, state == LIST_LOADING ? "Loading..." : state == LIST_FAILED ? "Could not load list" : "No images", screen, &grid->area);
 	}
-	for (int i = 0; i < count; i++) {
+	int scroll_y = grid->top_row * grid->row_pitch + (int)grid->scroll_offset;
+	int first_index = scroll_y / grid->row_pitch * grid->cols;
+	SDL_SetClipRect(screen, &grid->area);
+	for (int index = first_index; index < grid->total && index < first_index + (grid->rows + 1) * grid->cols; index++) {
 		SDL_Rect cell = {
-			grid->area.x + (i % grid->cols) * (grid->tile_w + GAP),
-			grid->area.y + (i / grid->cols) * (grid->tile_h + GAP),
+			grid->area.x + (index % grid->cols) * (grid->tile_w + GAP),
+			grid->area.y + (index / grid->cols) * grid->row_pitch - scroll_y,
 			grid->tile_w, grid->tile_h,
 		};
-		Tile* tile = tile_find(grid, items[i].id);
+		Tile* tile = tile_find(grid, grid->assets[index].id);
 		if (tile && tile->surface) SDL_BlitSurface(tile->surface, NULL, screen, &cell);
 		else SDL_FillRect(screen, &cell, theme_color(THEME_COLOR3_255));
 		int badge_size = SCALE1(10) < grid->tile_h / 3 ? SCALE1(10) : grid->tile_h / 3;
-		draw_badges(grid->flags[grid->page * grid->page_size + i], cell.x + cell.w - GAP, cell.y + cell.h - GAP - badge_size, badge_size);
-		if (i == grid->cell) draw_outline(&cell, SCALE1(2), theme_color(THEME_COLOR2_255));
+		draw_badges(grid->flags[index], cell.x + cell.w - GAP, cell.y + cell.h - GAP - badge_size, badge_size);
+		if (index == grid->selected) draw_outline(&cell, SCALE1(2), theme_color(THEME_COLOR2_255));
 	}
+	SDL_SetClipRect(screen, NULL);
 
 	GFX_blitButtonGroup(LEFT_HINTS, 1, screen, 0);
 	GFX_blitButtonGroup(RIGHT_HINTS, 0, screen, 1);
 	GFX_flip(screen);
-}
-
-static float clamp(float value, float low, float high) {
-	return value < low ? low : value > high ? high : value;
 }
 
 static void set_scale(Viewer* viewer, float scale) {
@@ -542,7 +552,7 @@ static void draw_viewer(Grid* grid, Viewer* viewer) {
 	}
 	if (viewer->info) {
 		char counter[32];
-		snprintf(counter, sizeof(counter), "%d/%d", current_index(grid) + 1, grid->total);
+		snprintf(counter, sizeof(counter), "%d/%d", grid->selected + 1, grid->total);
 		int counter_width = pill_width(counter);
 		draw_pill_text(counter, screen->w - margin - counter_width, margin, counter_width);
 
@@ -553,7 +563,7 @@ static void draw_viewer(Grid* grid, Viewer* viewer) {
 		if (asset->width) snprintf(lines[line_count++], sizeof(lines[0]), "%dx%d", asset->width, asset->height);
 		snprintf(lines[line_count++], sizeof(lines[0]), "%s", grid->title);
 		for (int i = 0; i < line_count; i++) draw_pill_text(lines[i], margin, margin + i * SCALE1(PILL_SIZE + 2), max_width - counter_width - margin);
-		draw_badges(grid->flags[current_index(grid)], screen->w - margin, margin + SCALE1(PILL_SIZE + 2), SCALE1(20));
+		draw_badges(grid->flags[grid->selected], screen->w - margin, margin + SCALE1(PILL_SIZE + 2), SCALE1(20));
 	}
 	if (viewer->overlay != OVERLAY_NONE) dim_screen();
 	if (viewer->overlay == OVERLAY_CONTROLS) draw_controls();
@@ -578,7 +588,7 @@ static void load_current(Grid* grid, Viewer* viewer) {
 
 // 1 if the selection moved to another image.
 static int step_image(Grid* grid, int delta) {
-	int index = current_index(grid) + delta;
+	int index = grid->selected + delta;
 	if (index < 0 || index >= grid->total) return 0;
 	set_index(grid, index);
 	return 1;
@@ -602,7 +612,7 @@ static void start_download(Grid* grid, Viewer* viewer) {
 static void delete_original(Grid* grid, Viewer* viewer) {
 	char message[256];
 	snprintf(message, sizeof(message), "Delete from device?\n%s%s", current_asset(grid)->filename,
-		grid->device && !(grid->flags[current_index(grid)] & FLAG_UPLOADED) ? "\nNot uploaded to Immich yet." : "");
+		grid->device && !(grid->flags[grid->selected] & FLAG_UPLOADED) ? "\nNot uploaded to Immich yet." : "");
 	if (ui_confirm(message)) {
 		unlink(viewer->local_path);
 		rescan_disk(grid);
@@ -732,25 +742,44 @@ static void viewer_run(Grid* grid) {
 	set_preview(&viewer, NULL);
 }
 
-static void move_selection(Grid* grid, int count, int dx, int dy) {
-	int selected = grid->cell, column = selected % grid->cols;
-	if (dx && column + dx >= 0 && column + dx < grid->cols && selected + dx < count) selected += dx;
+static void move_selection(Grid* grid, int dx, int dy) {
+	int selected = grid->selected, column = selected % grid->cols;
+	if (dx && column + dx >= 0 && column + dx < grid->cols && selected + dx < grid->total) selected += dx;
 	if (dy < 0 && selected >= grid->cols) selected -= grid->cols;
-	if (dy > 0 && selected + grid->cols < count) selected += grid->cols;
-	else if (dy > 0 && selected / grid->cols < (count - 1) / grid->cols) selected = count - 1;
-	grid->cell = selected;
+	if (dy > 0 && selected + grid->cols < grid->total) selected += grid->cols;
+	else if (dy > 0 && selected / grid->cols < (grid->total - 1) / grid->cols) selected = grid->total - 1;
+	set_index(grid, selected);
+}
+
+// Scrolls a screen up or down, keeping the selection at the same place on it.
+static void page_selection(Grid* grid, int direction) {
+	int top = clamp_top(grid, grid->top_row + direction * grid->rows);
+	int selected = grid->selected + (top - grid->top_row) * grid->cols;
+	grid->selected = selected < grid->total ? selected : grid->total - 1;
+	set_top(grid, top);
+}
+
+// 1 while the view is still catching up with top_row.
+static int scroll_animate(Grid* grid) {
+	unsigned now = SDL_GetTicks();
+	unsigned elapsed_ms = now - grid->scroll_tick;
+	grid->scroll_tick = now;
+	if (!grid->scroll_offset) return 0;
+	grid->scroll_offset *= expf(-(float)elapsed_ms / SCROLL_TAU_MS);
+	if (fabsf(grid->scroll_offset) < 0.5f) grid->scroll_offset = 0;
+	return 1;
 }
 
 void grid_run(const char* title, const char** album_ids, int album_count, int device) {
 	Grid grid = { .title = title, .album_ids = album_ids, .album_count = album_count, .device = device };
 	grid.screenshots = albums_all_nextui(album_ids, album_count);
 	prefs_grid_size(&grid.cols, &grid.rows);
-	grid.page_size = grid.cols * grid.rows;
 	grid.area = (SDL_Rect){ SCALE1(PADDING), SCALE1(PADDING + PILL_SIZE),
 		screen->w - SCALE1(PADDING * 2), screen->h - SCALE1(PADDING * 2 + PILL_SIZE * 2 + PADDING / 2) };
 	grid.tile_w = (grid.area.w - GAP * (grid.cols - 1)) / grid.cols;
 	grid.tile_h = (grid.area.h - GAP * (grid.rows - 1)) / grid.rows;
-	grid.tile_capacity = TILE_CACHE_PAGES * grid.page_size;
+	grid.row_pitch = grid.tile_h + GAP;
+	grid.tile_capacity = TILE_CACHE_PAGES * grid.cols * grid.rows;
 	grid.tiles = calloc(grid.tile_capacity, sizeof(*grid.tiles));
 	grid.list = (ListRequest){ .album_ids = album_ids, .album_count = album_count };
 	cache_list_key(album_ids, album_count, grid.list.cache_key, sizeof(grid.list.cache_key));
@@ -764,30 +793,22 @@ void grid_run(const char* title, const char** album_ids, int album_count, int de
 		PAD_poll();
 		if (PAD_justPressed(BTN_B)) break;
 
-		int count;
-		page_items(&grid, grid.page, &count);
-		int selected = grid.cell;
-		if (PAD_justRepeated(BTN_LEFT)) move_selection(&grid, count, -1, 0);
-		else if (PAD_justRepeated(BTN_RIGHT)) move_selection(&grid, count, 1, 0);
-		else if (PAD_justRepeated(BTN_UP)) move_selection(&grid, count, 0, -1);
-		else if (PAD_justRepeated(BTN_DOWN)) move_selection(&grid, count, 0, 1);
-		dirty |= selected != grid.cell;
+		int selected = grid.selected;
+		if (PAD_justRepeated(BTN_LEFT)) move_selection(&grid, -1, 0);
+		else if (PAD_justRepeated(BTN_RIGHT)) move_selection(&grid, 1, 0);
+		else if (PAD_justRepeated(BTN_UP)) move_selection(&grid, 0, -1);
+		else if (PAD_justRepeated(BTN_DOWN)) move_selection(&grid, 0, 1);
 
-		if (PAD_justPressed(BTN_L1) && grid.page > 0) {
-			set_page(&grid, grid.page - 1);
-			dirty = 1;
-		}
-		else if (PAD_justPressed(BTN_R1) && grid.page + 1 < page_total(&grid)) {
-			set_page(&grid, grid.page + 1);
-			dirty = 1;
-		}
-		else if (PAD_justPressed(BTN_A) && count) {
+		if (PAD_justPressed(BTN_L1)) page_selection(&grid, -1);
+		else if (PAD_justPressed(BTN_R1)) page_selection(&grid, 1);
+		else if (PAD_justPressed(BTN_A) && grid.total) {
 			viewer_run(&grid);
 			seen = worker_completions();
 			drain_images(&grid, NULL);
-			prime(&grid);
+			request_tiles(&grid);
 			dirty = 1;
 		}
+		dirty |= selected != grid.selected;
 
 		unsigned done = worker_completions();
 		if (done != seen) {
@@ -796,6 +817,7 @@ void grid_run(const char* title, const char** album_ids, int album_count, int de
 			drain_images(&grid, NULL);
 			adopt_list(&grid);
 		}
+		dirty |= scroll_animate(&grid);
 		PWR_update(&dirty, &show_setting, NULL, NULL);
 		if (dirty) {
 			draw_grid(&grid);

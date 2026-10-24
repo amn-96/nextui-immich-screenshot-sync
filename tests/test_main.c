@@ -299,10 +299,6 @@ static void test_full_list_cache_and_slices(void) {
 	free(config);
 
 	int count;
-	assert(immich_page_slice(assets, total, 0, 2, &count) == assets && count == 2);
-	assert(immich_page_slice(assets, total, 1, 2, &count) == assets + 2 && count == 1);
-	immich_page_slice(assets, total, 2, 2, &count);
-	assert(count == 0);
 	free(assets);
 
 	setenv("FAKE_CURL_FAIL", "1", 1);

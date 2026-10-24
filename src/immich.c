@@ -17,7 +17,7 @@
 #define CURSOR_LEN 128
 
 static const char* KEY_PERMISSIONS[] = {
-	"asset.read", "asset.view", "asset.upload", "asset.download", "album.read", "album.create", "albumAsset.create",
+	"asset.read", "asset.view", "asset.upload", "asset.download", "album.read", "album.create", "albumAsset.create", "user.read",
 };
 
 #define LIST_PAGE_SIZE 1000
@@ -277,6 +277,24 @@ int immich_ping(void) {
 	return request(&(Request){.method = "GET", .path = "/server/ping"});
 }
 
+int immich_server_version(char version_out[32]) {
+	char* response = NULL;
+	if (request(&(Request){.method = "GET", .path = "/server/version", .response = &response})) return -1;
+	cJSON* root = cJSON_Parse(response);
+	snprintf(version_out, 32, "v%d.%d.%d", json_int(root, "major"), json_int(root, "minor"), json_int(root, "patch"));
+	cJSON_Delete(root);
+	free(response);
+	return 0;
+}
+
+int immich_user_name(char name_out[128]) {
+	char* response = NULL;
+	if (request(&(Request){.method = "GET", .path = "/users/me", .response = &response})) return -1;
+	int status = json_string_field(response, "name", name_out, 128);
+	free(response);
+	return status;
+}
+
 int immich_login(const char* server_url, const char* email, const char* password) {
 	cJSON* login = cJSON_CreateObject();
 	cJSON_AddStringToObject(login, "email", email);
@@ -394,13 +412,6 @@ int immich_album_assets_all(const char** album_ids, int album_count, ImmichAsset
 		strcpy(cursor, next_cursor);
 	} while (cursor[0]);
 	return 0;
-}
-
-const ImmichAsset* immich_page_slice(const ImmichAsset* assets, int total, int page, int page_size, int* count) {
-	int start = page * page_size;
-	*count = total - start < page_size ? total - start : page_size;
-	if (*count < 0) *count = 0;
-	return assets + start;
 }
 
 static int download_to(const char* path, const char* dest_path) {

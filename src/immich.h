@@ -34,6 +34,9 @@ char* immich_albums_to_json(const ImmichAlbum* albums, int count);
 char* immich_assets_to_json(const ImmichAsset* assets, int count, const char* next_cursor);
 
 int immich_ping(void);
+int immich_server_version(char version_out[32]);
+// Needs the user.read permission, which keys made before it was added to immich_login lack.
+int immich_user_name(char name_out[128]);
 // Exchanges credentials for a scoped API key, stores it and the email in prefs, saves prefs.
 int immich_login(const char* server_url, const char* email, const char* password);
 
@@ -49,8 +52,6 @@ int immich_album_assets(const char** album_ids, int album_count, const char* cur
 
 // Every asset of album_ids, newest first, by following cursors. Caller frees *assets.
 int immich_album_assets_all(const char** album_ids, int album_count, ImmichAsset** assets, int* count);
-// Page `page` of a full list; *count is 0 past the end.
-const ImmichAsset* immich_page_slice(const ImmichAsset* assets, int total, int page, int page_size, int* count);
 
 // size: "thumbnail" or "preview". Writes response body to dest_path.
 int immich_download_image(const char* asset_id, const char* size, const char* dest_path);

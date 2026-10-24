@@ -4,7 +4,9 @@ IMAGE := ghcr.io/loveretro/$(PLATFORM)-toolchain:latest
 RUN = $(DOCKER) run --rm $(1) -v $(CURDIR):/work -w /work -e PLATFORM=$(PLATFORM) -e UNION_PLATFORM=$(PLATFORM) $(IMAGE)
 
 ELF := build/$(PLATFORM)/immich.elf
-PAK := build/Immich.pak
+# NextUI lists the pak by its folder name.
+PAK_NAME := Immich Screenshot Sync.pak
+PAK := build/$(PAK_NAME)
 
 # Brick firmware CA bundle predates current roots; ship Mozilla's.
 CACERT := build/cacert.pem
@@ -19,9 +21,9 @@ $(CACERT):
 	curl -fsSL -o $@ https://curl.se/ca/cacert.pem
 
 pak: all $(CACERT)
-	rm -rf $(PAK)
-	mkdir -p $(PAK)
-	cp pak/launch.sh pak/pak.json $(ELF) $(CACERT) $(PAK)/
+	rm -rf "$(PAK)"
+	mkdir -p "$(PAK)"
+	cp pak/launch.sh pak/pak.json $(ELF) $(CACERT) "$(PAK)/"
 
 shell:
 	$(call RUN,-it) /bin/bash
@@ -39,7 +41,7 @@ SSH = sshpass -e ssh -o StrictHostKeyChecking=accept-new $$BRICK_USER@$$BRICK_IP
 PREFS_REMOTE := /mnt/SDCARD/.userdata/shared/Immich/prefs.txt
 
 deploy: pak
-	$(BRICK_ENV) tar -C build -cf - Immich.pak | $(SSH) 'rm -rf /mnt/SDCARD/Tools/$(PLATFORM)/Immich.pak && tar -xf - -C /mnt/SDCARD/Tools/$(PLATFORM)'
+	$(BRICK_ENV) tar -C build -cf - "$(PAK_NAME)" | $(SSH) 'rm -rf /mnt/SDCARD/Tools/$(PLATFORM)/Immich.pak "/mnt/SDCARD/Tools/$(PLATFORM)/$(PAK_NAME)" && tar -xf - -C /mnt/SDCARD/Tools/$(PLATFORM)'
 	$(BRICK_ENV) $(SSH) 'mkdir -p $(dir $(PREFS_REMOTE)) && test -f $(PREFS_REMOTE) || cat > $(PREFS_REMOTE)' < local/prefs.txt
 
 logs:

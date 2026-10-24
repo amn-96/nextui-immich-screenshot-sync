@@ -22,7 +22,7 @@ char* cache_read_list(const char* key);
 // 0: fetched from the server, 1: served from the cached copy, -1: both failed (see immich_error).
 int cache_list_albums(ImmichAlbum** albums, int* count);
 
-// The whole listing of an album set is cached once under cache_list_key; grid pages are slices of it.
+// The whole listing of an album set is cached once under cache_list_key.
 void cache_list_key(const char** album_ids, int album_count, char* key, size_t size);
 // 0 and a malloc'd array on success, -1 when nothing is cached under key.
 int cache_load_assets(const char* key, ImmichAsset** assets, int* count);
