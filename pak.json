@@ -1,0 +1,22 @@
+{
+  "name": "Immich Sync",
+  "version": "v1.0.0",
+  "type": "TOOL",
+  "description": "Sync your screenshots to Immich and browse your Immich albums.",
+  "author": "amn-96",
+  "repo_url": "https://github.com/amn-96/nextui-immich-screenshot-sync",
+  "release_filename": "Immich.Sync.pak.zip",
+  "launch": "launch.sh",
+  "changelog": {
+    "v1.0.0": "Initial release."
+  },
+  "screenshots": [
+    "docs/screenshots/01-main.png",
+    "docs/screenshots/02-device.png",
+    "docs/screenshots/03-all.png",
+    "docs/screenshots/04-viewer.png",
+    "docs/screenshots/05-info.png",
+    "docs/screenshots/08-settings.png"
+  ],
+  "platforms": ["tg5040", "tg5050", "h700"]
+}

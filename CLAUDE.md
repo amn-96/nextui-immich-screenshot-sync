@@ -9,7 +9,7 @@ Native C (gnu99) app for NextUI handhelds: browses Immich albums and syncs devic
 - `src/grid.c`: thumbnail grid and image viewer.
 - `src/worker.c`: the single background thread for network and decoding. The UI thread never blocks on I/O.
 - `src/immich.c` (API), `cache.c` (disk cache), `sync.c` (upload), `daemon.c` (background sync), `prefs.c`, `settings.c`, `text.c` (emoji-aware text).
-- `pak/`: launch script, hook script (`immich-sync.sh`), and assets shipped in the pak.
+- `pak/`: launch script, hook script (`immich-sync.sh`), and assets shipped in the pak. `pak.json` (repo root) is the Pak Store manifest; releases come from `v*` tags (`.github/workflows/release.yaml`).
 - `vendor/`: pinned submodules (NextUI common, cJSON, libwebp, SDL_ttf).
 - `tools/brick.py`: screenshots and button presses on a real Brick over ssh. It needs the gitignored `local/brick.env`.
 

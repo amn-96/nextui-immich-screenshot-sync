@@ -4,6 +4,8 @@
 # NextUI exports SDCARD_PATH, PLATFORM and the userdata paths to paks and hooks.
 PAK="$SDCARD_PATH/Tools/$PLATFORM/Immich Sync.pak"
 [ -d "$PAK" ] || exit 0
+# Hook dirs hold copies; run the pak's own script so pak updates take effect without reinstalling.
+[ "$0" = "$PAK/immich-sync.sh" ] || exec "$PAK/immich-sync.sh" "$@"
 
 PREFS_DIR="$SHARED_USERDATA_PATH/Immich"
 HOOK_DIRS="boot.d pre-launch.d post-launch.d pre-sleep.d post-resume.d"
@@ -30,7 +32,7 @@ start_daemon() {
 	signal_daemon USR1 && return 0
 	cd "$PAK" || return 1
 	export CURL_CA_BUNDLE="$PAK/cacert.pem"
-	./immich.elf --sync-daemon > "$LOGS_PATH/Immich-daemon.txt" 2>&1 < /dev/null &
+	./bin/$PLATFORM/immich.elf --sync-daemon > "$LOGS_PATH/Immich-daemon.txt" 2>&1 < /dev/null &
 }
 
 case "${HOOK_CATEGORY:-$1}" in

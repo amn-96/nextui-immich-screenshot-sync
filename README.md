@@ -17,9 +17,17 @@ A [NextUI](https://github.com/LoveRetro/NextUI) pak built to sync your retro gam
 
 ## Setup
 
-1. Unzip `release.zip` at the root of your SD card (see [Install](#install)).
-2. On the device, open **Tools > Immich Sync > Settings > Immich Settings**.
-3. Enter your **Server URL**, **Email** and **Password**, then choose **Sign In**. The password is used once to create an API key; only the key is stored. To use your own API key instead, see [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md).
+### Installation
+1. Install the pak (see [Install](#install)).
+
+### Quickstart
+See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for more details.
+
+#### Connecting to Immich
+1. On the device, open **Tools > Immich Sync > Settings > Immich Settings**.
+2. Enter your **Server URL**, **Email** and **Password**, then choose **Sign In**. The password is used once to create an API key; only the key is stored. 
+
+To use your own API key instead, see [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md).
 4. Back on the main menu, open **This Device**. The first time, it asks for a name for this device. Screenshots upload to an Immich album named `<name><match key>`, e.g. `Brick_NextUI`. Keep the default match key `_NextUI` (case-sensitive) so the album also shows up in **All Screenshots** on your other devices.
 5. Optional: in **Settings > Sync Settings**, turn on **Daemon Autostart**. A background daemon then uploads new screenshots shortly after they're taken. It pauses during sleep and while a game is running (unless **Background Sync** is on), and never polls.
 
@@ -43,11 +51,15 @@ If you're not on a Brick, the UI might break in some spots especially with text 
 Requires Docker and `git submodule update --init` (NextUI, cJSON, libwebp, SDL_ttf are pinned submodules under `vendor/`), plus `git -C vendor/SDL_ttf submodule update --init external/freetype`. The device's SDL_ttf is too old for emoji, so SDL_ttf 2.22 and its FreeType are built statically; `pak/NotoEmoji.ttf` (OFL) supplies the emoji glyphs.
 
     make          # build/tg5040/immich.elf in the tg5040 toolchain container
-    make pak      # assemble "build/tg5040/Immich Sync.pak"
-    make release  # build every platform into build/release.zip
+    make pak      # assemble "build/Immich Sync.pak" for PLATFORM
+    make release  # pak with every platform's binary, zipped to build/Immich.Sync.pak.zip
     make pak PLATFORM=h700   # any target takes PLATFORM (tg5040, tg5050, h700)
     make shell    # interactive toolchain shell
 
 ## Install
 
-Unzip `release.zip` at the SD card root; it holds `Tools/<platform>/Immich Sync.pak` for each platform.
+Download `Immich.Sync.pak.zip` from the [latest release](https://github.com/amn-96/nextui-immich-screenshot-sync/releases/latest) and unzip it into a folder named `Immich Sync.pak` under `Tools/<platform>/` on your SD card, e.g. `Tools/tg5040/Immich Sync.pak` on a Brick. One zip works on every supported platform.
+
+## Releasing
+
+Bump `version` (and `changelog`) in `pak.json`, commit, then push a matching tag, e.g. `git tag v1.0.1 && git push public v1.0.1`. GitHub Actions builds `Immich.Sync.pak.zip` and publishes the release; the tag must equal the `pak.json` version.

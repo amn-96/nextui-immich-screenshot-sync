@@ -1,0 +1,27 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # Forgejo also runs .github/workflows when .forgejo/ is absent; releases come from GitHub only.
+    if: github.server_url == 'https://github.com'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag matches pak.json
+        run: test "$(jq -r .version pak.json)" = "$GITHUB_REF_NAME"
+      - name: Submodules
+        run: |
+          git submodule update --init
+          git -C vendor/SDL_ttf submodule update --init external/freetype
+      - run: make release
+      - name: Publish
+        run: gh release create "$GITHUB_REF_NAME" build/Immich.Sync.pak.zip --title "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
