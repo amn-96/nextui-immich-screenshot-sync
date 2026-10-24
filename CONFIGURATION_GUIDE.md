@@ -61,11 +61,13 @@ Server URL (`server_url`), Email (`user_email`), Password and **Sign In** (see a
 | **Background Sync** (`background_sync`) | Lets the daemon keep uploading while a game runs. Off pauses it until you exit the game. |
 | **Synced Album**, **Album Match Key** | Read-only. Set during first-run setup (`album_label`, `match_key`, `album_id`). |
 
-The synced album is named `<album name><match key>`, e.g. `Brick_NextUI`. Any album ending in the same match key (case-sensitive) shows up in **All Screenshots**, so keep the default `_NextUI` on all your devices.
+#### How "All Screenshots" Works
+
+The synced album you created during onboarding is named `<album name><match key>`, e.g. `Brick_NextUI`. The contents of any album on your Immich server **ending in the same match key**(case-sensitive) will automatically show up in **All Screenshots**. I do something like `Brick_Screenshots`, `Odin_Screenshots`, `PC_Screenshots`.
 
 ### Cache
 
-Thumbnails and previews are cached on the SD card.
+Thumbnails and previews are cached on the SD card. 
 
 | Setting | What it does |
 |---|---|
