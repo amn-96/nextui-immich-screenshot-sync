@@ -68,3 +68,12 @@ Requires Docker and `git submodule update --init` (NextUI, cJSON, libwebp, SDL_t
 ## Releasing
 
 Bump `version` (and `changelog`) in `pak.json`, commit, then push a matching tag, e.g. `git tag v1.0.1 && git push public v1.0.1`. GitHub Actions builds `Immich.Sync.pak.zip` and publishes the release; the tag must equal the `pak.json` version.
+
+## AI Disclosure
+This is AI-assisted af. I do have previous experience hand-writing little apps like this to talk to self-hosted services and my day job is a lot of Python (pre-AI and post-AI), but I haven't written anything in C since CS 101 so Claude did all the legwork to integrate with NextUI's tooling and libraries. I've reviewed the general structure of the code and all of the docs and functionality descriptions are proofed by me.
+
+## Roadmap
+- Test layout and functionality on my CubeXX
+- See if anything can be done to make caching and loading faster. Screenshots are quick but if you have high res images like I do, it can be a bit slow. Not sure how much of this is just slow hardware (probably a lot).
+- Test an actual Immich timeline view. I'm worried this'll chomp up all the Brick's RAM.
+- Support for videos? Is that useful?
