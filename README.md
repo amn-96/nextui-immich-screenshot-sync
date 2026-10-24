@@ -18,7 +18,14 @@ A [NextUI](https://github.com/LoveRetro/NextUI) pak built to sync your retro gam
 ## Setup
 
 ### Installation
-1. Install the pak (see [Install](#install)).
+
+1. Download `Immich.Sync.pak.zip` from the [latest release](https://github.com/amn-96/nextui-immich-screenshot-sync/releases/latest).
+2. On your SD card, create `Tools/<platform>/Immich Sync.pak/`, using your device's platform folder from the [table above](#device-support). For example, use `Tools/tg5040/Immich Sync.pak/` on a Brick.
+3. Unzip the contents into that folder.
+
+The zip is the same for every device: it contains a binary for each platform, and the pak runs the one matching the device it's on. Only the folder you put it in depends on your device.
+
+Pak store listing is pending.
 
 ### Quickstart
 See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for more details.
@@ -27,9 +34,11 @@ See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for more details.
 1. On the device, open **Tools > Immich Sync > Settings > Immich Settings**.
 2. Enter your **Server URL**, **Email** and **Password**, then choose **Sign In**. The password is used once to create an API key; only the key is stored. 
 
-To use your own API key instead, see [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md).
-4. Back on the main menu, open **This Device**. The first time, it asks for a name for this device. Screenshots upload to an Immich album named `<name><match key>`, e.g. `Brick_NextUI`. Keep the default match key `_NextUI` (case-sensitive) so the album also shows up in **All Screenshots** on your other devices.
-5. Optional: in **Settings > Sync Settings**, turn on **Daemon Autostart**. A background daemon then uploads new screenshots shortly after they're taken. It pauses during sleep and while a game is running (unless **Background Sync** is on), and never polls.
+If you'd prefer, you may use your own Immich API key directly. See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md).
+
+#### Onboarding
+1. Back on the main menu, open **This Device**. The first time, it asks for a name for this device. Screenshots upload to an Immich album named `<name><match key>`, e.g. `Brick_NextUI`. Keep the default match key `_NextUI` (case-sensitive) so the album also shows up in **All Screenshots** on your other devices.
+2. Optional: in **Settings > Sync Settings**, turn on **Daemon Autostart**. A background daemon then uploads new screenshots shortly after they're taken. It pauses during sleep and while a game is running (unless **Background Sync** is on), and never polls.
 
 Without the daemon, screenshots upload whenever the app is open, or with **Force Sync**. The app never deletes anything on your Immich server.
 
@@ -55,10 +64,6 @@ Requires Docker and `git submodule update --init` (NextUI, cJSON, libwebp, SDL_t
     make release  # pak with every platform's binary, zipped to build/Immich.Sync.pak.zip
     make pak PLATFORM=h700   # any target takes PLATFORM (tg5040, tg5050, h700)
     make shell    # interactive toolchain shell
-
-## Install
-
-Download `Immich.Sync.pak.zip` from the [latest release](https://github.com/amn-96/nextui-immich-screenshot-sync/releases/latest) and unzip it into a folder named `Immich Sync.pak` under `Tools/<platform>/` on your SD card, e.g. `Tools/tg5040/Immich Sync.pak` on a Brick. One zip works on every supported platform.
 
 ## Releasing
 
