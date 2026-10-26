@@ -19,8 +19,9 @@ CFLAGS := -I$(SDLTTF)/include $(CFLAGS) -I$(PREFIX_LOCAL)/include/SDL2
 CFLAGS += $(OPT) -I$(COMMON) -I$(PLAT) -Ivendor/cJSON -Ivendor/libwebp/src -I$(MSETTINGS)/include \
 	-DPLATFORM=\"$(PLATFORM)\" -std=gnu99
 # BaseOS (H700) ships no libjpeg; the other platforms decode JPEG through the device's SDL2_image.
+# STICKS_FROM_PLATFORM: only h700 reports which stick it has; see lstick_seen in src/grid.c.
 ifeq ($(PLATFORM),h700)
-CFLAGS += -DBUNDLED_JPEG -Ivendor/stb
+CFLAGS += -DBUNDLED_JPEG -DSTICKS_FROM_PLATFORM -Ivendor/stb
 endif
 LDFLAGS += -L$(MSETTINGS)/lib $(LIBWEBP)/libwebpdecoder.a $(SDLTTF)/libSDL2_ttf.a $(SDLTTF)/external/freetype/libfreetype.a -lmsettings
 

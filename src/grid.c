@@ -91,7 +91,8 @@ typedef struct {
 
 static const unsigned char ICON_FLAGS[ICON_COUNT] = { FLAG_UPLOADED, FLAG_ON_DISK };
 static const char* OPTION_LABELS[] = { "Download Original", "Delete from Device" };
-// Set once a stick has moved past the deadzone; NextUI's tg5040 headers claim sticks on every device, including the stick-less Brick.
+// NextUI's tg5040 headers claim sticks on every device, including the stick-less Brick, so there a stick counts once it moves past
+// the deadzone. h700 builds (STICKS_FROM_PLATFORM) know the model's sticks up front.
 static int lstick_seen, rstick_seen;
 
 static Uint32 theme_color(uint32_t rgba) {
@@ -678,6 +679,10 @@ static float stick_deflection(int raw) {
 
 static void viewer_run(Grid* grid) {
 	Viewer viewer = {0};
+#ifdef STICKS_FROM_PLATFORM
+	lstick_seen = AXIS_LX != AXIS_NA;
+	rstick_seen = AXIS_RX != AXIS_NA;
+#endif
 	load_current(grid, &viewer);
 	unsigned seen = worker_completions();
 	int dirty = 1;
