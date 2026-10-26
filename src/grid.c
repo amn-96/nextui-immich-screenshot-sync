@@ -21,7 +21,13 @@
 #define MAX_SCALE 4.0f
 #define ZOOM_STEP 0.1f
 #define ZOOM_REPEAT_MS 250
-#define PAN_STEP 32
+#define STICK_DEADZONE 12000 // of 32767
+#define STICK_ZOOM_PER_SEC 2.0f // scale change at full deflection
+#define STICK_PAN_PER_SEC 600 // screen pixels at full deflection
+#define PAN_STEP 32 // screen pixels for a d-pad tap
+#define PAN_START_PER_SEC 200 // d-pad hold speed in screen pixels, accelerating to PAN_MAX_PER_SEC
+#define PAN_ACCEL_PER_SEC2 800
+#define PAN_MAX_PER_SEC 1400
 #define DIM_ALPHA 170
 #define OPTION_PADDING 8
 #define BADGE_ALPHA 180
@@ -656,15 +662,26 @@ static int download_input(Grid* grid, Viewer* viewer) {
 	return 1;
 }
 
+// Raw NextUI axis (-32768..32767) to -1..1, zero inside the deadzone.
+static float stick_deflection(int raw) {
+	if (abs(raw) < STICK_DEADZONE) return 0;
+	return (raw < 0 ? -1 : 1) * (abs(raw) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
+}
+
 static void viewer_run(Grid* grid) {
 	Viewer viewer = {0};
 	load_current(grid, &viewer);
 	unsigned seen = worker_completions();
 	int dirty = 1;
 	unsigned next_zoom_at = 0;
+	unsigned last_tick = SDL_GetTicks();
+	float dpad_hold_seconds = 0;
 	for (;;) {
 		GFX_startFrame();
 		PAD_poll();
+		unsigned now = SDL_GetTicks();
+		float frame_seconds = (now - last_tick) / 1000.0f;
+		last_tick = now;
 		if (viewer.overlay == OVERLAY_NONE && PAD_justPressed(BTN_B)) break;
 
 		int delta = 0;
@@ -680,8 +697,8 @@ static void viewer_run(Grid* grid) {
 		}
 		else if (viewer.overlay == OVERLAY_DOWNLOAD) dirty |= download_input(grid, &viewer);
 		else {
-			if (PAD_justPressed(BTN_L1) || (!viewer.scale && PAD_justPressed(BTN_LEFT))) delta = -1;
-			else if (PAD_justPressed(BTN_R1) || (!viewer.scale && PAD_justPressed(BTN_RIGHT))) delta = 1;
+			if (PAD_justPressed(BTN_L1) || (!viewer.scale && PAD_justPressed(BTN_DPAD_LEFT))) delta = -1;
+			else if (PAD_justPressed(BTN_R1) || (!viewer.scale && PAD_justPressed(BTN_DPAD_RIGHT))) delta = 1;
 			if (delta) {
 				if (step_image(grid, delta)) load_current(grid, &viewer);
 				dirty = 1;
@@ -699,23 +716,43 @@ static void viewer_run(Grid* grid) {
 				dirty = 1;
 			}
 			else if (viewer.preview) {
-				int pan_x = PAD_justRepeated(BTN_RIGHT) ? 1 : PAD_justRepeated(BTN_LEFT) ? -1 : 0;
-				int pan_y = PAD_justRepeated(BTN_DOWN) ? 1 : PAD_justRepeated(BTN_UP) ? -1 : 0;
-				if (PAD_justPressed(BTN_A)) cycle_zoom(&viewer);
-				else if (PAD_isPressed(BTN_R2) || PAD_isPressed(BTN_L2)) {
-					unsigned now = SDL_GetTicks();
+				// BTN_LEFT etc. include the left stick, which pans by deflection below; the d-pad is read directly.
+				int dpad_x = !!PAD_isPressed(BTN_DPAD_RIGHT) - !!PAD_isPressed(BTN_DPAD_LEFT);
+				int dpad_y = !!PAD_isPressed(BTN_DPAD_DOWN) - !!PAD_isPressed(BTN_DPAD_UP);
+				int tap_x = !!PAD_justPressed(BTN_DPAD_RIGHT) - !!PAD_justPressed(BTN_DPAD_LEFT);
+				int tap_y = !!PAD_justPressed(BTN_DPAD_DOWN) - !!PAD_justPressed(BTN_DPAD_UP);
+				dpad_hold_seconds = dpad_x || dpad_y ? dpad_hold_seconds + frame_seconds : 0;
+				float dpad_speed = fminf(PAN_START_PER_SEC + PAN_ACCEL_PER_SEC2 * dpad_hold_seconds, PAN_MAX_PER_SEC);
+				// NextUI reports the sticks only as raw pad.laxis / pad.raxis (no button events); up is negative.
+				float stick_zoom = -stick_deflection(pad.raxis.y);
+				float stick_pan_x = stick_deflection(pad.laxis.x);
+				float stick_pan_y = stick_deflection(pad.laxis.y);
+				int trigger_dir = PAD_isPressed(BTN_R2) ? 1 : PAD_isPressed(BTN_L2) ? -1 : 0;
+				float base_scale = viewer.scale ? viewer.scale : fit_scale(zoom_image(&viewer));
+				if (PAD_justPressed(BTN_A) || PAD_justPressed(BTN_R3)) cycle_zoom(&viewer);
+				else if (viewer.scale && PAD_justPressed(BTN_L3)) {
+					viewer.center_x = zoom_image(&viewer)->w / 2.0f;
+					viewer.center_y = zoom_image(&viewer)->h / 2.0f;
+				}
+				else if (trigger_dir) {
 					if (PAD_justPressed(BTN_R2) || PAD_justPressed(BTN_L2) || now >= next_zoom_at) {
-						float step = PAD_isPressed(BTN_R2) ? ZOOM_STEP : -ZOOM_STEP;
-						set_scale(&viewer, (viewer.scale ? viewer.scale : fit_scale(zoom_image(&viewer))) + step);
+						set_scale(&viewer, base_scale + trigger_dir * ZOOM_STEP);
 						next_zoom_at = now + ZOOM_REPEAT_MS;
 						dirty = 1;
 					}
 				}
-				else if (viewer.scale && (pan_x || pan_y)) {
-					viewer.center_x += pan_x * PAN_STEP / viewer.scale;
-					viewer.center_y += pan_y * PAN_STEP / viewer.scale;
+				else if (stick_zoom) {
+					set_scale(&viewer, base_scale + stick_zoom * STICK_ZOOM_PER_SEC * frame_seconds);
+					dirty = 1;
 				}
-				dirty |= pan_x || pan_y || PAD_anyJustPressed();
+				else if (viewer.scale) {
+					float stick_px = STICK_PAN_PER_SEC * frame_seconds;
+					float dpad_px = dpad_speed * frame_seconds;
+					viewer.center_x += (tap_x * PAN_STEP + dpad_x * dpad_px + stick_pan_x * stick_px) / viewer.scale;
+					viewer.center_y += (tap_y * PAN_STEP + dpad_y * dpad_px + stick_pan_y * stick_px) / viewer.scale;
+					dirty |= dpad_x || dpad_y || stick_pan_x || stick_pan_y;
+				}
+				dirty |= PAD_anyJustPressed();
 			}
 		}
 
