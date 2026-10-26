@@ -28,3 +28,11 @@ Native C (gnu99) app for NextUI handhelds: browses Immich albums and syncs devic
 - Keep the code minimal; no speculative features or defensive checks for cases that can't happen.
 - Comments state constraints the code can't show.
 - Before driving the Brick, ask whether the user is using it. `brick.py` presses reach whatever is on screen.
+
+## Version update (when writing a PR)
+
+Per the [Pak Store rules](https://github.com/LoveRetro/nextui-pak-store):
+- Bump `version` in `pak.json` (SemVer `vX.Y.Z`) and add a `changelog` entry under the new version.
+- The release tag must equal `version`; the tag triggers `release.yaml`. Keep `release_filename` matching the zip name (`Immich.Sync.pak.zip`).
+- Add new devices to `platforms` only once built; keep README device support in step.
+- Update `screenshots` paths if a screen changed.

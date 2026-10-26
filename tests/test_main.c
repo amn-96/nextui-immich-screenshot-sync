@@ -279,6 +279,12 @@ static void test_cache_lists_and_offline_albums(void) {
 
 	assert(!cache_download(CACHE_THUMB, "aaaaaaaa") && cache_exists(CACHE_THUMB, "aaaaaaaa") && cache_bytes() == 3);
 	assert(is_match_album("Brick_NextUI") && !is_match_album("Holiday"));
+
+	strcpy(prefs.album_id, "album-id");
+	strcpy(prefs.album_label, "Brick");
+	prefs.match_key[0] = '\0';
+	assert(is_match_album("Brick") && !is_match_album("Odin") && !is_match_album("Brick_NextUI"));
+	prefs_reset_sync();
 }
 
 static void test_full_list_cache_and_slices(void) {

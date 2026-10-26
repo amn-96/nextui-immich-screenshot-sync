@@ -1,39 +1,61 @@
 #include <limits.h>
 #include <webp/decode.h>
 
+#ifdef BUNDLED_JPEG
+#define STBI_ONLY_JPEG
+#define STBI_NO_STDIO
+#define STBI_NO_LINEAR
+#define STBI_NO_HDR
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+#endif
+
 #include "image.h"
 
-static SDL_Surface* load_webp(SDL_RWops* file) {
-	size_t size = SDL_RWsize(file);
-	uint8_t* encoded = malloc(size);
-	int width, height;
-	SDL_Surface* surface = NULL;
-	SDL_RWseek(file, 0, RW_SEEK_SET);
-	if (SDL_RWread(file, encoded, 1, size) == size && WebPGetInfo(encoded, size, &width, &height)) {
-		surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
-		if (!WebPDecodeRGBAInto(encoded, size, surface->pixels, surface->pitch * height, surface->pitch)) {
-			SDL_FreeSurface(surface);
-			surface = NULL;
-		}
-	}
-	free(encoded);
+static SDL_Surface* surface_from_rgba(const uint8_t* pixels, int width, int height) {
+	SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
+	memcpy(surface->pixels, pixels, (size_t)width * height * 4);
 	return surface;
 }
+
+static SDL_Surface* load_webp(const uint8_t* encoded, size_t size) {
+	int width, height;
+	if (!WebPGetInfo(encoded, size, &width, &height)) return NULL;
+	SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
+	if (!WebPDecodeRGBAInto(encoded, size, surface->pixels, surface->pitch * height, surface->pitch)) {
+		SDL_FreeSurface(surface);
+		return NULL;
+	}
+	return surface;
+}
+
+#ifdef BUNDLED_JPEG
+// BaseOS (H700) ships no libjpeg, so SDL2_image cannot decode JPEG there.
+static SDL_Surface* load_jpeg(const uint8_t* encoded, size_t size) {
+	int width, height, channels;
+	uint8_t* pixels = stbi_load_from_memory(encoded, size, &width, &height, &channels, 4);
+	if (!pixels) return NULL;
+	SDL_Surface* surface = surface_from_rgba(pixels, width, height);
+	stbi_image_free(pixels);
+	return surface;
+}
+#endif
 
 SDL_Surface* image_load(const char* path) {
 	SDL_RWops* file = SDL_RWFromFile(path, "rb");
 	if (!file) return NULL;
-	char magic[12] = "";
-	SDL_RWread(file, magic, 1, sizeof(magic));
-	SDL_Surface* surface;
-	if (!memcmp(magic, "RIFF", 4) && !memcmp(magic + 8, "WEBP", 4)) {
-		surface = load_webp(file);
-		SDL_RWclose(file);
+	size_t size = SDL_RWsize(file);
+	uint8_t* encoded = malloc(size);
+	SDL_Surface* surface = NULL;
+	if (SDL_RWread(file, encoded, 1, size) == size) {
+		if (size >= 12 && !memcmp(encoded, "RIFF", 4) && !memcmp(encoded + 8, "WEBP", 4)) surface = load_webp(encoded, size);
+#ifdef BUNDLED_JPEG
+		else if (size >= 3 && !memcmp(encoded, "\xff\xd8\xff", 3)) surface = load_jpeg(encoded, size);
+#endif
+		else surface = IMG_Load_RW(SDL_RWFromConstMem(encoded, size), 1);
 	}
-	else {
-		SDL_RWseek(file, 0, RW_SEEK_SET);
-		surface = IMG_Load_RW(file, 1);
-	}
+	SDL_RWclose(file);
+	free(encoded);
 	if (surface) SDL_SetSurfaceBlendMode(surface, SDL_BLENDMODE_NONE);
 	return surface;
 }

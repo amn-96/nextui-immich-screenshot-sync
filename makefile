@@ -2,7 +2,10 @@ PLATFORM ?= tg5040
 PLATFORMS := tg5040 tg5050 h700
 DOCKER ?= $(or $(shell command -v docker),$(HOME)/.orbstack/bin/docker)
 IMAGE := ghcr.io/loveretro/$(PLATFORM)-toolchain:latest
-RUN = $(DOCKER) run --rm $(1) -v $(CURDIR):/work -w /work -e PLATFORM=$(PLATFORM) -e UNION_PLATFORM=$(PLATFORM) $(IMAGE)
+# CI runs inside a container whose workspace is not a host path, so it shares volumes instead of bind-mounting.
+MOUNT ?= -v $(CURDIR):/work
+WORKDIR ?= /work
+RUN = $(DOCKER) run --rm $(1) $(MOUNT) -w $(WORKDIR) -e PLATFORM=$(PLATFORM) -e UNION_PLATFORM=$(PLATFORM) $(IMAGE)
 
 # NextUI lists the pak by its folder name.
 PAK_NAME := Immich Sync.pak
