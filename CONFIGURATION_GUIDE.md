@@ -59,11 +59,13 @@ Server URL (`server_url`), Email (`user_email`), Password and **Sign In** (see a
 | **Reset Sync Settings** | Clears this device's album and match key so you can set them up again. Nothing is deleted on Immich. |
 | **Daemon Autostart** (`daemon_autostart`) | Starts a background daemon at boot that uploads new screenshots as they appear. Pauses during sleep. |
 | **Background Sync** (`background_sync`) | Lets the daemon keep uploading while a game runs. Off pauses it until you exit the game. |
-| **Synced Album**, **Album Match Key** | Read-only. Set during first-run setup (`album_label`, `match_key`, `album_id`). |
+| **Synced Album**, **Album Match Key** | Read-only. Set during first-run setup (`album_label`, `match_key`, `album_id`). The key shows `(none)` if you chose no matching. |
 
 #### How "All Screenshots" Works
 
 The synced album you created during onboarding is named `<album name><match key>`, e.g. `Brick_NextUI`. The contents of any album on your Immich server **ending in the same match key**(case-sensitive) will automatically show up in **All Screenshots**. I do something like `Brick_Screenshots`, `Odin_Screenshots`, `PC_Screenshots`.
+
+During onboarding the **Album Match Key** row cycles with left/right: `(none)`, the default `_NextUI`, and **Custom...**, which opens the keyboard to type your own key (e.g. `_Screenshots`). With `(none)` the key is empty (`match_key=` in `prefs.txt`), the synced album is named just `<album name>`, and **All Screenshots** shows only this device's album plus any extra albums you pick. The key is fixed after setup; use **Reset Sync Settings** to change it.
 
 ### Cache
 

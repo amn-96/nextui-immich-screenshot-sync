@@ -25,7 +25,7 @@ static int load_albums(ImmichAlbum** albums, int* count) {
 }
 
 static void show_device_album(void) {
-	if (!prefs.match_key[0]) {
+	if (!prefs.album_id[0]) {
 		if (!onboarding_run()) return;
 		sync_start();
 	}

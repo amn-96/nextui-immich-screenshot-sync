@@ -41,7 +41,7 @@ See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for more details.
 If you'd prefer, you may use your own Immich API key directly. See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md).
 
 #### Onboarding
-1. Back on the main menu, open **This Device**. The first time, it asks for a name for this device. Screenshots upload to an Immich album named `<name><match key>`, e.g. `Brick_NextUI`. Keep the default match key `_NextUI` (case-sensitive) so the album also shows up in **All Screenshots** on your other devices.
+1. Back on the main menu, open **This Device**. The first time, it asks for a name for this device. Screenshots upload to an Immich album named `<name><match key>`, e.g. `Brick_NextUI`. Keep the default match key `_NextUI` (case-sensitive) so the album also shows up in **All Screenshots** on your other devices. On the match key row, press left for `(none)` (no matching; the album is just `<name>` and only this device's album shows in **All Screenshots**) or right for **Custom...** to type your own key.
 2. Optional: in **Settings > Sync Settings**, turn on **Daemon Autostart**. A background daemon then uploads new screenshots shortly after they're taken. It pauses during sleep and while a game is running (unless **Background Sync** is on). The daemon auto-runs the sync process 5s after wake with a retry at 30s in case wifi didn't connect; 5s after a game exits; and then on a stepped schedule afterwards.
 
 Without the daemon, screenshots upload as soon as the app opens, or with **Force Sync**. The daemon is still in testing to find my preferred schedule and to characterize its impact on gaming and battery life. Preliminary testing shows 0 idle cpu usage and since it doesn't run when a game is active, it shouldn't impact performance. Large library syncs may take a while and drain your battery that way, but it should be safe. I plan to switch the daemon to `ON` by default in a future release soon.
@@ -57,7 +57,8 @@ The app never deletes anything on your Immich server.
 | `tg5040` | TrimUI Brick | Tested |
 | `tg5040` | TrimUI Smart Pro | Untested (same binary, 1280x720 layout unverified) |
 | `tg5050` | TrimUI Smart Pro S | Compiles, untested |
-| `h700` | Anbernic RG35XX/RG40XX family | Compiles, untested |
+| `h700` | Anbernic RG CubeXX (BaseOS) | Tested |
+| `h700` | Anbernic RG35XX/RG40XX family | Untested |
 
 If you're not on a Brick, the UI might break in some spots especially with text layouts. Reports from other devices are welcome via issues or discord -- please send screenshots if possible! 
 

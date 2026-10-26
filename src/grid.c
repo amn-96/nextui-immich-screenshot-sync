@@ -21,7 +21,14 @@
 #define MAX_SCALE 4.0f
 #define ZOOM_STEP 0.1f
 #define ZOOM_REPEAT_MS 250
-#define PAN_STEP 32
+#define STICK_DEADZONE 12000 // of 32767
+#define STICK_ZOOM_PER_SEC 2.0f // scale change at full deflection
+#define STICK_PAN_PER_SEC 700 // screen pixels at partial-to-full deflection, before the hold boost
+#define STICK_FULL_DEFLECTION 0.9f // held at or above this, the stick pan accelerates like the d-pad
+#define PAN_STEP 32 // screen pixels for a d-pad tap
+#define PAN_START_PER_SEC 200 // d-pad hold speed in screen pixels, accelerating to PAN_MAX_PER_SEC
+#define PAN_ACCEL_PER_SEC2 800
+#define PAN_MAX_PER_SEC 1400
 #define DIM_ALPHA 170
 #define OPTION_PADDING 8
 #define BADGE_ALPHA 180
@@ -84,13 +91,9 @@ typedef struct {
 
 static const unsigned char ICON_FLAGS[ICON_COUNT] = { FLAG_UPLOADED, FLAG_ON_DISK };
 static const char* OPTION_LABELS[] = { "Download Original", "Delete from Device" };
-static char* CONTROLS_ROWS[][4] = {
-	{ "A", "ZOOM 100%", "B", "BACK" },
-	{ "X", "INFO", "Y", "OPTIONS" },
-	{ "L1", "PREV", "R1", "NEXT" },
-	{ "L2", "ZOOM OUT", "R2", "ZOOM IN" },
-	{ "START", "CONTROLS", "SELECT", "-" },
-};
+// NextUI's tg5040 headers claim sticks on every device, including the stick-less Brick, so there a stick counts once it moves past
+// the deadzone. h700 builds (STICKS_FROM_PLATFORM) know the model's sticks up front.
+static int lstick_seen, rstick_seen;
 
 static Uint32 theme_color(uint32_t rgba) {
 	SDL_Color color = uintToColour(rgba);
@@ -468,27 +471,39 @@ static void dim_screen(void) {
 	SDL_BlitSurface(dim, NULL, screen, NULL);
 }
 
-// Same pill as GFX_blitButtonGroup, centered at y.
+// Same pill as GFX_blitButtonGroup, centered at y. pairs is NULL-terminated {button, label, ...}; a " " label draws a bare bubble (SDL_ttf may return NULL for an empty string).
 static void draw_hint_row(char** pairs, int y) {
-	int widths[2], pill_w = SCALE1(BUTTON_MARGIN);
-	for (int i = 0; i < 2; i++) {
-		widths[i] = GFX_getButtonWidth(pairs[i * 2 + 1], pairs[i * 2]);
-		pill_w += widths[i] + SCALE1(BUTTON_MARGIN);
+	int count = 0, widths[4], pill_w = SCALE1(BUTTON_MARGIN);
+	for (; pairs[count * 2]; count++) {
+		widths[count] = GFX_getButtonWidth(pairs[count * 2 + 1], pairs[count * 2]);
+		pill_w += widths[count] + SCALE1(BUTTON_MARGIN);
 	}
 	int x = (screen->w - pill_w) / 2;
 	GFX_blitPillColor(ASSET_WHITE_PILL, screen, &(SDL_Rect){x, y, pill_w, SCALE1(PILL_SIZE)}, THEME_COLOR2, RGB_WHITE);
 	x += SCALE1(BUTTON_MARGIN);
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < count; i++) {
 		GFX_blitButton(pairs[i * 2 + 1], pairs[i * 2], screen, &(SDL_Rect){x, y + SCALE1(BUTTON_MARGIN)});
 		x += widths[i] + SCALE1(BUTTON_MARGIN);
 	}
 }
 
 static void draw_controls(void) {
-	int rows = sizeof(CONTROLS_ROWS) / sizeof(*CONTROLS_ROWS);
+	char* zoom_row[] = {
+		"R STICK", " ", "L2", "-", "R2", "+",
+		lstick_seen ? "DPAD/L STICK" : "DPAD", "PAN", NULL,
+	};
+	if (!rstick_seen) memmove(zoom_row, zoom_row + 2, sizeof(zoom_row) - 2 * sizeof(*zoom_row));
+	char** rows[] = {
+		(char*[]){ "A", "ZOOM 100%", "B", "BACK", NULL },
+		(char*[]){ "X", "INFO", "Y", "OPTIONS", NULL },
+		(char*[]){ "DPAD", " ", "L1", "PREV", "R1", "NEXT", NULL },
+		zoom_row,
+		(char*[]){ "START", "CONTROLS", NULL },
+	};
+	int row_count = sizeof(rows) / sizeof(*rows);
 	int pitch = SCALE1(PILL_SIZE + PADDING);
-	int top = (screen->h - rows * pitch) / 2;
-	for (int i = 0; i < rows; i++) draw_hint_row(CONTROLS_ROWS[i], top + i * pitch);
+	int top = (screen->h - row_count * pitch) / 2;
+	for (int i = 0; i < row_count; i++) draw_hint_row(rows[i], top + i * pitch);
 }
 
 static void draw_options(Viewer* viewer) {
@@ -656,15 +671,30 @@ static int download_input(Grid* grid, Viewer* viewer) {
 	return 1;
 }
 
+// Raw NextUI axis (-32768..32767) to -1..1, zero inside the deadzone.
+static float stick_deflection(int raw) {
+	if (abs(raw) < STICK_DEADZONE) return 0;
+	return (raw < 0 ? -1 : 1) * (abs(raw) - STICK_DEADZONE) / (32767.0f - STICK_DEADZONE);
+}
+
 static void viewer_run(Grid* grid) {
 	Viewer viewer = {0};
+#ifdef STICKS_FROM_PLATFORM
+	lstick_seen = AXIS_LX != AXIS_NA;
+	rstick_seen = AXIS_RX != AXIS_NA;
+#endif
 	load_current(grid, &viewer);
 	unsigned seen = worker_completions();
 	int dirty = 1;
 	unsigned next_zoom_at = 0;
+	unsigned last_tick = SDL_GetTicks();
+	float dpad_hold_seconds = 0, stick_hold_seconds = 0;
 	for (;;) {
 		GFX_startFrame();
 		PAD_poll();
+		unsigned now = SDL_GetTicks();
+		float frame_seconds = (now - last_tick) / 1000.0f;
+		last_tick = now;
 		if (viewer.overlay == OVERLAY_NONE && PAD_justPressed(BTN_B)) break;
 
 		int delta = 0;
@@ -680,8 +710,8 @@ static void viewer_run(Grid* grid) {
 		}
 		else if (viewer.overlay == OVERLAY_DOWNLOAD) dirty |= download_input(grid, &viewer);
 		else {
-			if (PAD_justPressed(BTN_L1) || (!viewer.scale && PAD_justPressed(BTN_LEFT))) delta = -1;
-			else if (PAD_justPressed(BTN_R1) || (!viewer.scale && PAD_justPressed(BTN_RIGHT))) delta = 1;
+			if (PAD_justPressed(BTN_L1) || (!viewer.scale && PAD_justPressed(BTN_DPAD_LEFT))) delta = -1;
+			else if (PAD_justPressed(BTN_R1) || (!viewer.scale && PAD_justPressed(BTN_DPAD_RIGHT))) delta = 1;
 			if (delta) {
 				if (step_image(grid, delta)) load_current(grid, &viewer);
 				dirty = 1;
@@ -699,23 +729,47 @@ static void viewer_run(Grid* grid) {
 				dirty = 1;
 			}
 			else if (viewer.preview) {
-				int pan_x = PAD_justRepeated(BTN_RIGHT) ? 1 : PAD_justRepeated(BTN_LEFT) ? -1 : 0;
-				int pan_y = PAD_justRepeated(BTN_DOWN) ? 1 : PAD_justRepeated(BTN_UP) ? -1 : 0;
-				if (PAD_justPressed(BTN_A)) cycle_zoom(&viewer);
-				else if (PAD_isPressed(BTN_R2) || PAD_isPressed(BTN_L2)) {
-					unsigned now = SDL_GetTicks();
+				// BTN_LEFT etc. include the left stick, which pans by deflection below; the d-pad is read directly.
+				int dpad_x = !!PAD_isPressed(BTN_DPAD_RIGHT) - !!PAD_isPressed(BTN_DPAD_LEFT);
+				int dpad_y = !!PAD_isPressed(BTN_DPAD_DOWN) - !!PAD_isPressed(BTN_DPAD_UP);
+				int tap_x = !!PAD_justPressed(BTN_DPAD_RIGHT) - !!PAD_justPressed(BTN_DPAD_LEFT);
+				int tap_y = !!PAD_justPressed(BTN_DPAD_DOWN) - !!PAD_justPressed(BTN_DPAD_UP);
+				dpad_hold_seconds = dpad_x || dpad_y ? dpad_hold_seconds + frame_seconds : 0;
+				float dpad_speed = fminf(PAN_START_PER_SEC + PAN_ACCEL_PER_SEC2 * dpad_hold_seconds, PAN_MAX_PER_SEC);
+				// NextUI reports the sticks only as raw pad.laxis / pad.raxis (no button events); up is negative.
+				float stick_zoom = -stick_deflection(pad.raxis.y);
+				float stick_pan_x = stick_deflection(pad.laxis.x);
+				float stick_pan_y = stick_deflection(pad.laxis.y);
+				lstick_seen |= stick_pan_x || stick_pan_y;
+				rstick_seen |= stick_zoom != 0;
+				stick_hold_seconds = hypotf(stick_pan_x, stick_pan_y) >= STICK_FULL_DEFLECTION ? stick_hold_seconds + frame_seconds : 0;
+				float stick_speed = STICK_PAN_PER_SEC + fminf(PAN_ACCEL_PER_SEC2 * stick_hold_seconds, PAN_MAX_PER_SEC - STICK_PAN_PER_SEC);
+				int trigger_dir = PAD_isPressed(BTN_R2) ? 1 : PAD_isPressed(BTN_L2) ? -1 : 0;
+				float base_scale = viewer.scale ? viewer.scale : fit_scale(zoom_image(&viewer));
+				if (PAD_justPressed(BTN_A) || PAD_justPressed(BTN_R3)) cycle_zoom(&viewer);
+				else if (viewer.scale && PAD_justPressed(BTN_L3)) {
+					viewer.center_x = zoom_image(&viewer)->w / 2.0f;
+					viewer.center_y = zoom_image(&viewer)->h / 2.0f;
+				}
+				else if (trigger_dir) {
 					if (PAD_justPressed(BTN_R2) || PAD_justPressed(BTN_L2) || now >= next_zoom_at) {
-						float step = PAD_isPressed(BTN_R2) ? ZOOM_STEP : -ZOOM_STEP;
-						set_scale(&viewer, (viewer.scale ? viewer.scale : fit_scale(zoom_image(&viewer))) + step);
+						set_scale(&viewer, base_scale + trigger_dir * ZOOM_STEP);
 						next_zoom_at = now + ZOOM_REPEAT_MS;
 						dirty = 1;
 					}
 				}
-				else if (viewer.scale && (pan_x || pan_y)) {
-					viewer.center_x += pan_x * PAN_STEP / viewer.scale;
-					viewer.center_y += pan_y * PAN_STEP / viewer.scale;
+				else if (stick_zoom) {
+					set_scale(&viewer, base_scale + stick_zoom * STICK_ZOOM_PER_SEC * frame_seconds);
+					dirty = 1;
 				}
-				dirty |= pan_x || pan_y || PAD_anyJustPressed();
+				else if (viewer.scale) {
+					float stick_px = stick_speed * frame_seconds;
+					float dpad_px = dpad_speed * frame_seconds;
+					viewer.center_x += (tap_x * PAN_STEP + dpad_x * dpad_px + stick_pan_x * stick_px) / viewer.scale;
+					viewer.center_y += (tap_y * PAN_STEP + dpad_y * dpad_px + stick_pan_y * stick_px) / viewer.scale;
+					dirty |= dpad_x || dpad_y || stick_pan_x || stick_pan_y;
+				}
+				dirty |= PAD_anyJustPressed();
 			}
 		}
 

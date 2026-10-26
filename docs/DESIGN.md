@@ -6,7 +6,7 @@ Target: TrimUI Brick (`tg5040`, 1024x768, SCALE 3). Native C app built against N
 
 Main menu: This Device · All Screenshots · Immich Albums · Settings
 
-- **This Device** → first open runs sync onboarding (album name + match key, default `_NextUI`, case-sensitive), then a grid of the `<name><key>` album (e.g. `Brick_NextUI`).
+- **This Device** → first open runs sync onboarding (album name + match key: `(none)`, default `_NextUI` or Custom..., case-sensitive), then a grid of the `<name><key>` album (e.g. `Brick_NextUI`).
 - **All Screenshots** → unified grid: all `* (NextUI)` albums + user-chosen extras.
 - **Immich Albums** → list of all Immich albums → grid. Selecting starts thumbnail caching.
 - **Grid** → thumbnail grid, d-pad moves, L1/R1 prev/next page, A opens viewer, B back.

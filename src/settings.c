@@ -24,6 +24,8 @@ static void edit_field(char* title, char* field, size_t size) {
 	if (ui_text_input(title, field, field, size)) prefs_save();
 }
 
+#define NO_MATCH_KEY "(none)"
+
 static char* text_or_unset(char* text) {
 	return text[0] ? text : "Not set";
 }
@@ -129,25 +131,35 @@ int onboarding_run(void) {
 		return 0;
 	}
 
-	char label[sizeof(prefs.album_label)] = "", key[sizeof(prefs.match_key)] = DEFAULT_MATCH_KEY;
-	char label_text[sizeof(label)], album_name[ALBUM_NAME_LEN];
+	enum { KEY_NONE, KEY_DEFAULT, KEY_CUSTOM };
+	char label[sizeof(prefs.album_label)] = "", custom_key[sizeof(prefs.match_key)] = "";
+	char label_text[sizeof(label)], custom_text[sizeof(custom_key)], album_name[ALBUM_NAME_LEN];
+	char* key_labels[] = { NO_MATCH_KEY, DEFAULT_MATCH_KEY, custom_text };
 	UiRow rows[] = {
 		{ UI_ROW_ACTION, "Album Name for this Device", label_text, .description = "Names this device's album, e.g. \"Brick\". Required." },
-		{ UI_ROW_ACTION, "Album Match Key", key, .description = "Ends the album name, case-sensitive. Albums with the same ending show in All Screenshots. Keep the default unless you know why." },
+		{ UI_ROW_CYCLE, "Album Match Key", .values = key_labels, .value_count = ARRAY_LEN(key_labels), .value_index = KEY_DEFAULT,
+			.description = "Ends the album name, case-sensitive. Albums with the same ending show in All Screenshots. (none) turns matching off; Custom... types your own. Keep the default unless you know why." },
 		{ UI_ROW_READOUT, "Album", album_name, .description = "The Immich album your screenshots will upload to. It is created if missing, never deleted." },
 		{ UI_ROW_ACTION, "Confirm", .description = "Create or find the album and start syncing. Name and key cannot be edited afterwards." },
 	};
 	UiMenu menu = { "Sync Setup", UI_STYLE_LIST, "OKAY", rows, ARRAY_LEN(rows) };
 	for (;;) {
 		snprintf(label_text, sizeof(label_text), "%s", text_or_unset(label));
+		snprintf(custom_text, sizeof(custom_text), "%s", custom_key[0] ? custom_key : "Custom...");
+		int key_index = rows[1].value_index;
+		const char* key = key_index == KEY_NONE ? "" : key_index == KEY_DEFAULT ? DEFAULT_MATCH_KEY : custom_key;
 		snprintf(album_name, sizeof(album_name), "%s%s", label[0] ? label : "?", key);
-		if (ui_menu_run(&menu) == UI_BACK) return 0;
+		UiEvent event = ui_menu_run(&menu);
+		if (event == UI_BACK) return 0;
 		if (menu.selected == 0) ui_text_input("Album Name for this Device", label, label, sizeof(label));
-		else if (menu.selected == 1) ui_text_input("Album Match Key", key, key, sizeof(key));
+		else if (event == UI_CHANGED && menu.selected == 1 && rows[1].value_index == KEY_CUSTOM) {
+			if (!ui_text_input("Album Match Key", custom_key, custom_key, sizeof(custom_key)) || !custom_key[0])
+				rows[1].value_index = KEY_DEFAULT;
+		}
 		else if (menu.selected == 3) {
 			char album_id[PREFS_ID_LEN];
-			if (!label[0] || !key[0]) {
-				ui_alert("Enter an album name and match key");
+			if (!label[0]) {
+				ui_alert("Enter an album name");
 				continue;
 			}
 			ui_flash("Setting up album...");
@@ -211,13 +223,13 @@ static void sync_menu(void) {
 			.description = "Keep uploading while a game is running. Off pauses the daemon until you exit the game." },
 		{ UI_ROW_HEADER, "Immich Sync Settings for This Device" },
 		{ UI_ROW_DISABLED, "Synced Album", album_text, .description = "The Immich album screenshots upload to. Fixed after setup; use Reset Sync Settings to change it." },
-		{ UI_ROW_DISABLED, "Album Match Key", .description = "Albums ending in this show in All Screenshots. Fixed after setup." },
+		{ UI_ROW_DISABLED, "Album Match Key", .description = "Albums ending in this show in All Screenshots; (none) shows only this device's album. Fixed after setup." },
 	};
 	UiMenu menu = { "Sync Settings", UI_STYLE_LIST, "OKAY", rows, ARRAY_LEN(rows) };
 	for (;;) {
 		prefs_synced_album_name(album_text, sizeof(album_text));
 		rows[SYNCED_ALBUM_ROW].text = prefs.album_id[0] ? album_text : "Not set up";
-		rows[MATCH_KEY_ROW].text = text_or_unset(prefs.match_key);
+		rows[MATCH_KEY_ROW].text = !prefs.album_id[0] ? "Not set" : prefs.match_key[0] ? prefs.match_key : NO_MATCH_KEY;
 		UiEvent event = ui_menu_run(&menu);
 		if (event == UI_BACK) return;
 		if (menu.selected == FORCE_SYNC_ROW) force_sync();

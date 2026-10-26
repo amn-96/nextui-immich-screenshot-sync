@@ -33,10 +33,11 @@ void mkdir_p(const char* dir) {
 }
 
 static const char* match_key(void) {
-	return prefs.match_key[0] ? prefs.match_key : DEFAULT_MATCH_KEY;
+	return prefs.album_id[0] ? prefs.match_key : DEFAULT_MATCH_KEY;
 }
 
 int is_match_album(const char* name) {
+	if (!match_key()[0]) return !strcmp(name, prefs.album_label);
 	size_t name_len = strlen(name), key_len = strlen(match_key());
 	return name_len >= key_len && !strcmp(name + name_len - key_len, match_key());
 }

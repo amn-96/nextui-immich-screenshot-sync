@@ -1,0 +1,22 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: selfhost-runner
+    steps:
+      - uses: https://github.com/actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Submodules
+        run: |
+          git submodule update --init
+          git -C vendor/SDL_ttf submodule update --init external/freetype
+      - run: make test release MOUNT="--volumes-from $(hostname)" WORKDIR="$PWD"
+      # v4 needs GHES-only artifact APIs that Forgejo lacks.
+      - uses: https://github.com/actions/upload-artifact@v3
+        with:
+          name: Immich.Sync.pak
+          path: build/Immich.Sync.pak.zip
