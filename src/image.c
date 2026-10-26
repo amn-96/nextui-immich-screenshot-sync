@@ -1,12 +1,14 @@
 #include <limits.h>
 #include <webp/decode.h>
 
+#ifdef BUNDLED_JPEG
 #define STBI_ONLY_JPEG
 #define STBI_NO_STDIO
 #define STBI_NO_LINEAR
 #define STBI_NO_HDR
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#endif
 
 #include "image.h"
 
@@ -27,6 +29,7 @@ static SDL_Surface* load_webp(const uint8_t* encoded, size_t size) {
 	return surface;
 }
 
+#ifdef BUNDLED_JPEG
 // BaseOS (H700) ships no libjpeg, so SDL2_image cannot decode JPEG there.
 static SDL_Surface* load_jpeg(const uint8_t* encoded, size_t size) {
 	int width, height, channels;
@@ -36,6 +39,7 @@ static SDL_Surface* load_jpeg(const uint8_t* encoded, size_t size) {
 	stbi_image_free(pixels);
 	return surface;
 }
+#endif
 
 SDL_Surface* image_load(const char* path) {
 	SDL_RWops* file = SDL_RWFromFile(path, "rb");
@@ -45,7 +49,9 @@ SDL_Surface* image_load(const char* path) {
 	SDL_Surface* surface = NULL;
 	if (SDL_RWread(file, encoded, 1, size) == size) {
 		if (size >= 12 && !memcmp(encoded, "RIFF", 4) && !memcmp(encoded + 8, "WEBP", 4)) surface = load_webp(encoded, size);
+#ifdef BUNDLED_JPEG
 		else if (size >= 3 && !memcmp(encoded, "\xff\xd8\xff", 3)) surface = load_jpeg(encoded, size);
+#endif
 		else surface = IMG_Load_RW(SDL_RWFromConstMem(encoded, size), 1);
 	}
 	SDL_RWclose(file);

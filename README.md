@@ -57,7 +57,8 @@ The app never deletes anything on your Immich server.
 | `tg5040` | TrimUI Brick | Tested |
 | `tg5040` | TrimUI Smart Pro | Untested (same binary, 1280x720 layout unverified) |
 | `tg5050` | TrimUI Smart Pro S | Compiles, untested |
-| `h700` | Anbernic RG35XX/RG40XX family | Compiles, untested |
+| `h700` | Anbernic RG CubeXX (BaseOS) | Tested |
+| `h700` | Anbernic RG35XX/RG40XX family | Untested |
 
 If you're not on a Brick, the UI might break in some spots especially with text layouts. Reports from other devices are welcome via issues or discord -- please send screenshots if possible! 
 
