@@ -9,7 +9,7 @@ Native C (gnu99) app for NextUI handhelds: browses Immich albums and syncs devic
 - `src/grid.c`: thumbnail grid and image viewer.
 - `src/worker.c`: the single background thread for network and decoding. The UI thread never blocks on I/O.
 - `src/immich.c` (API), `cache.c` (disk cache), `sync.c` (upload), `daemon.c` (background sync), `prefs.c`, `settings.c`, `text.c` (emoji-aware text).
-- `pak/`: launch script, hook script (`immich-sync.sh`), and assets shipped in the pak. `pak.json` (repo root) is the Pak Store manifest; a push to `main` that changes `pak.json` to an untagged version publishes the GitHub release and creates the tag (`.github/workflows/release.yaml`).
+- `pak/`: launch script, hook script (`immich-sync.sh`), and assets shipped in the pak. `pak.json` (repo root) is the Pak Store manifest; a push to `main` that changes `pak.json` to an untagged version creates the tag on both hosts and publishes the GitHub release (`.github/workflows/release.yaml`, `.forgejo/workflows/release.yaml`).
 - `vendor/`: pinned submodules (NextUI common, cJSON, libwebp, SDL_ttf).
 - `tools/brick.py`: screenshots and button presses on a real Brick over ssh. It needs the gitignored `local/brick.env`.
 
@@ -33,6 +33,6 @@ Native C (gnu99) app for NextUI handhelds: browses Immich albums and syncs devic
 
 Per the [Pak Store rules](https://github.com/LoveRetro/nextui-pak-store):
 - Bump `version` in `pak.json` (SemVer `vX.Y.Z`) and add a `changelog` entry under the new version.
-- Never tag by hand: merging the bump to `main` makes `release.yaml` create the `version` tag and release. Keep `release_filename` matching the zip name (`Immich.Sync.pak.zip`).
+- Never tag by hand: merging the bump to `main` makes the release workflows create the `version` tag (and the GitHub release). Keep `release_filename` matching the zip name (`Immich.Sync.pak.zip`).
 - Add new devices to `platforms` only once built; keep README device support in step.
 - Update `screenshots` paths if a screen changed.
