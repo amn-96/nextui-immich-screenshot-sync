@@ -23,7 +23,8 @@
 #define ZOOM_REPEAT_MS 250
 #define STICK_DEADZONE 12000 // of 32767
 #define STICK_ZOOM_PER_SEC 2.0f // scale change at full deflection
-#define STICK_PAN_PER_SEC 600 // screen pixels at full deflection
+#define STICK_PAN_PER_SEC 700 // screen pixels at partial-to-full deflection, before the hold boost
+#define STICK_FULL_DEFLECTION 0.9f // held at or above this, the stick pan accelerates like the d-pad
 #define PAN_STEP 32 // screen pixels for a d-pad tap
 #define PAN_START_PER_SEC 200 // d-pad hold speed in screen pixels, accelerating to PAN_MAX_PER_SEC
 #define PAN_ACCEL_PER_SEC2 800
@@ -90,13 +91,8 @@ typedef struct {
 
 static const unsigned char ICON_FLAGS[ICON_COUNT] = { FLAG_UPLOADED, FLAG_ON_DISK };
 static const char* OPTION_LABELS[] = { "Download Original", "Delete from Device" };
-static char* CONTROLS_ROWS[][4] = {
-	{ "A", "ZOOM 100%", "B", "BACK" },
-	{ "X", "INFO", "Y", "OPTIONS" },
-	{ "L1", "PREV", "R1", "NEXT" },
-	{ "L2", "ZOOM OUT", "R2", "ZOOM IN" },
-	{ "START", "CONTROLS", "SELECT", "-" },
-};
+// Set once a stick has moved past the deadzone; NextUI's tg5040 headers claim sticks on every device, including the stick-less Brick.
+static int lstick_seen, rstick_seen;
 
 static Uint32 theme_color(uint32_t rgba) {
 	SDL_Color color = uintToColour(rgba);
@@ -474,27 +470,39 @@ static void dim_screen(void) {
 	SDL_BlitSurface(dim, NULL, screen, NULL);
 }
 
-// Same pill as GFX_blitButtonGroup, centered at y.
+// Same pill as GFX_blitButtonGroup, centered at y. pairs is NULL-terminated {button, label, ...}; a " " label draws a bare bubble (SDL_ttf may return NULL for an empty string).
 static void draw_hint_row(char** pairs, int y) {
-	int widths[2], pill_w = SCALE1(BUTTON_MARGIN);
-	for (int i = 0; i < 2; i++) {
-		widths[i] = GFX_getButtonWidth(pairs[i * 2 + 1], pairs[i * 2]);
-		pill_w += widths[i] + SCALE1(BUTTON_MARGIN);
+	int count = 0, widths[4], pill_w = SCALE1(BUTTON_MARGIN);
+	for (; pairs[count * 2]; count++) {
+		widths[count] = GFX_getButtonWidth(pairs[count * 2 + 1], pairs[count * 2]);
+		pill_w += widths[count] + SCALE1(BUTTON_MARGIN);
 	}
 	int x = (screen->w - pill_w) / 2;
 	GFX_blitPillColor(ASSET_WHITE_PILL, screen, &(SDL_Rect){x, y, pill_w, SCALE1(PILL_SIZE)}, THEME_COLOR2, RGB_WHITE);
 	x += SCALE1(BUTTON_MARGIN);
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < count; i++) {
 		GFX_blitButton(pairs[i * 2 + 1], pairs[i * 2], screen, &(SDL_Rect){x, y + SCALE1(BUTTON_MARGIN)});
 		x += widths[i] + SCALE1(BUTTON_MARGIN);
 	}
 }
 
 static void draw_controls(void) {
-	int rows = sizeof(CONTROLS_ROWS) / sizeof(*CONTROLS_ROWS);
+	char* zoom_row[] = {
+		"R STICK", " ", "L2", "-", "R2", "+",
+		lstick_seen ? "DPAD/L STICK" : "DPAD", "PAN", NULL,
+	};
+	if (!rstick_seen) memmove(zoom_row, zoom_row + 2, sizeof(zoom_row) - 2 * sizeof(*zoom_row));
+	char** rows[] = {
+		(char*[]){ "A", "ZOOM 100%", "B", "BACK", NULL },
+		(char*[]){ "X", "INFO", "Y", "OPTIONS", NULL },
+		(char*[]){ "DPAD", " ", "L1", "PREV", "R1", "NEXT", NULL },
+		zoom_row,
+		(char*[]){ "START", "CONTROLS", NULL },
+	};
+	int row_count = sizeof(rows) / sizeof(*rows);
 	int pitch = SCALE1(PILL_SIZE + PADDING);
-	int top = (screen->h - rows * pitch) / 2;
-	for (int i = 0; i < rows; i++) draw_hint_row(CONTROLS_ROWS[i], top + i * pitch);
+	int top = (screen->h - row_count * pitch) / 2;
+	for (int i = 0; i < row_count; i++) draw_hint_row(rows[i], top + i * pitch);
 }
 
 static void draw_options(Viewer* viewer) {
@@ -675,7 +683,7 @@ static void viewer_run(Grid* grid) {
 	int dirty = 1;
 	unsigned next_zoom_at = 0;
 	unsigned last_tick = SDL_GetTicks();
-	float dpad_hold_seconds = 0;
+	float dpad_hold_seconds = 0, stick_hold_seconds = 0;
 	for (;;) {
 		GFX_startFrame();
 		PAD_poll();
@@ -727,6 +735,10 @@ static void viewer_run(Grid* grid) {
 				float stick_zoom = -stick_deflection(pad.raxis.y);
 				float stick_pan_x = stick_deflection(pad.laxis.x);
 				float stick_pan_y = stick_deflection(pad.laxis.y);
+				lstick_seen |= stick_pan_x || stick_pan_y;
+				rstick_seen |= stick_zoom != 0;
+				stick_hold_seconds = hypotf(stick_pan_x, stick_pan_y) >= STICK_FULL_DEFLECTION ? stick_hold_seconds + frame_seconds : 0;
+				float stick_speed = STICK_PAN_PER_SEC + fminf(PAN_ACCEL_PER_SEC2 * stick_hold_seconds, PAN_MAX_PER_SEC - STICK_PAN_PER_SEC);
 				int trigger_dir = PAD_isPressed(BTN_R2) ? 1 : PAD_isPressed(BTN_L2) ? -1 : 0;
 				float base_scale = viewer.scale ? viewer.scale : fit_scale(zoom_image(&viewer));
 				if (PAD_justPressed(BTN_A) || PAD_justPressed(BTN_R3)) cycle_zoom(&viewer);
@@ -746,7 +758,7 @@ static void viewer_run(Grid* grid) {
 					dirty = 1;
 				}
 				else if (viewer.scale) {
-					float stick_px = STICK_PAN_PER_SEC * frame_seconds;
+					float stick_px = stick_speed * frame_seconds;
 					float dpad_px = dpad_speed * frame_seconds;
 					viewer.center_x += (tap_x * PAN_STEP + dpad_x * dpad_px + stick_pan_x * stick_px) / viewer.scale;
 					viewer.center_y += (tap_y * PAN_STEP + dpad_y * dpad_px + stick_pan_y * stick_px) / viewer.scale;
