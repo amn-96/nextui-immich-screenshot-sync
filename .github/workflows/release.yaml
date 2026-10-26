@@ -2,7 +2,8 @@ name: release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths: [pak.json]
 
 permissions:
   contents: write
@@ -14,14 +15,25 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Tag matches pak.json
-        run: test "$(jq -r .version pak.json)" = "$GITHUB_REF_NAME"
+      - name: Version from pak.json
+        id: version
+        run: |
+          version=$(jq -r .version pak.json)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if gh release view "$version" >/dev/null 2>&1; then echo "new=false" >> "$GITHUB_OUTPUT"; else echo "new=true" >> "$GITHUB_OUTPUT"; fi
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Submodules
+        if: steps.version.outputs.new == 'true'
         run: |
           git submodule update --init
           git -C vendor/SDL_ttf submodule update --init external/freetype
-      - run: make release
+      - if: steps.version.outputs.new == 'true'
+        run: make release
+      # gh creates the tag at this commit; a tag pushed with GITHUB_TOKEN would not trigger other workflows.
       - name: Publish
-        run: gh release create "$GITHUB_REF_NAME" build/Immich.Sync.pak.zip --title "$GITHUB_REF_NAME" --generate-notes
+        if: steps.version.outputs.new == 'true'
+        run: gh release create "$VERSION" build/Immich.Sync.pak.zip --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
