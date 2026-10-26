@@ -16,7 +16,7 @@ SOURCE := $(wildcard src/*.c) vendor/cJSON/cJSON.c \
 LDFLAGS := $(filter-out -l$(SDL)_ttf,$(LDFLAGS))
 # SDL_ttf.h includes SDL.h/begin_code.h unprefixed; h700's pkg-config SDL2 include dir doesn't exist.
 CFLAGS := -I$(SDLTTF)/include $(CFLAGS) -I$(PREFIX_LOCAL)/include/SDL2
-CFLAGS += $(OPT) -I$(COMMON) -I$(PLAT) -Ivendor/cJSON -Ivendor/libwebp/src -I$(MSETTINGS)/include \
+CFLAGS += $(OPT) -I$(COMMON) -I$(PLAT) -Ivendor/cJSON -Ivendor/libwebp/src -Ivendor/stb -I$(MSETTINGS)/include \
 	-DPLATFORM=\"$(PLATFORM)\" -std=gnu99
 LDFLAGS += -L$(MSETTINGS)/lib $(LIBWEBP)/libwebpdecoder.a $(SDLTTF)/libSDL2_ttf.a $(SDLTTF)/external/freetype/libfreetype.a -lmsettings
 
