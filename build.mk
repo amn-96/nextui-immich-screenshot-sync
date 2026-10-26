@@ -48,5 +48,6 @@ $(MSETTINGS)/lib/libmsettings.so: $(NEXTUI)/$(PLATFORM)/libmsettings/msettings.c
 # Host tests: native gcc, fake curl on PATH, no network.
 .PHONY: test
 test:
+	mkdir -p $(BUILD)
 	gcc -std=gnu99 -pthread -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Ivendor/cJSON -Isrc tests/test_main.c vendor/cJSON/cJSON.c -o $(BUILD)/test_main
 	$(BUILD)/test_main
