@@ -14,7 +14,7 @@ typedef struct {
 	char api_key[128];
 	char user_email[128];
 	char album_label[64];        // synced album is "<album_label><match_key>"
-	char match_key[32];          // empty until onboarding; fixed afterwards until Reset Sync Settings
+	char match_key[32];          // valid once album_id is set, and may then be empty (no matching); fixed until Reset Sync Settings
 	char album_id[40];           // synced album id, set when onboarding creates/finds it
 	int cache_limit_mb;          // 0 = unlimited
 	int daemon_autostart;
@@ -39,6 +39,7 @@ void prefs_save(void);
 const char* prefs_dir(void);     // $SHARED_USERDATA_PATH/Immich, created on load
 void mkdir_p(const char* dir);
 // Album names ending in the match key (DEFAULT_MATCH_KEY before onboarding) count as screenshot albums.
+// An empty key matches only the synced album.
 int is_match_album(const char* name);
 void prefs_synced_album_name(char* out, size_t size);
 // Clears album_label/match_key/album_id and saves; caches and server albums are untouched.
