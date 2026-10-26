@@ -14,8 +14,7 @@ jobs:
         run: |
           git submodule update --init
           git -C vendor/SDL_ttf submodule update --init external/freetype
-      - run: make test
-      - run: make release
+      - run: make test release MOUNT="--volumes-from $(hostname)" WORKDIR="$PWD"
       # v4 needs GHES-only artifact APIs that Forgejo lacks.
       - uses: https://github.com/actions/upload-artifact@v3
         with:
