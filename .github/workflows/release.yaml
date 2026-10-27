@@ -29,11 +29,11 @@ jobs:
           git submodule update --init
           git -C vendor/SDL_ttf submodule update --init external/freetype
       - if: steps.version.outputs.new == 'true'
-        run: make release
+        run: make release muxapp
       # gh creates the tag at this commit; a tag pushed with GITHUB_TOKEN would not trigger other workflows.
       - name: Publish
         if: steps.version.outputs.new == 'true'
-        run: gh release create "$VERSION" build/Immich.Sync.pak.zip --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
+        run: gh release create "$VERSION" build/Immich.Sync.pak.zip "build/Immich Sync.muxapp" --target "$GITHUB_SHA" --title "$VERSION" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}

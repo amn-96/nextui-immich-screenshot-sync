@@ -13,8 +13,11 @@
 #include "cache.h"
 #include "prefs.h"
 
-#ifndef SDCARD_ROOT
-#define SDCARD_ROOT "/mnt/SDCARD"
+#ifndef SCREENSHOTS_DIR
+#define SCREENSHOTS_DIR "/mnt/SDCARD/Screenshots"
+#endif
+#ifndef DOWNLOADS_DIR
+#define DOWNLOADS_DIR "/mnt/SDCARD/Pictures/Immich"
 #endif
 
 static const char* KIND_DIRS[] = { "thumbs", "preview", "lists" };
@@ -221,7 +224,7 @@ int albums_all_nextui(const char** album_ids, int album_count) {
 }
 
 const char* original_dir(int screenshots) {
-	return screenshots ? SDCARD_ROOT "/Screenshots" : SDCARD_ROOT "/Pictures/Immich";
+	return screenshots ? SCREENSHOTS_DIR : DOWNLOADS_DIR;
 }
 
 int original_find(const char* filename, char* path, size_t size) {

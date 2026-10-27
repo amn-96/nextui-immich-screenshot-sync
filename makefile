@@ -1,7 +1,9 @@
 PLATFORM ?= tg5040
 PLATFORMS := tg5040 tg5050 h700
 DOCKER ?= $(or $(shell command -v docker),$(HOME)/.orbstack/bin/docker)
-IMAGE := ghcr.io/loveretro/$(PLATFORM)-toolchain:latest
+# muos has no toolchain image of its own; it builds with tg5040's.
+TOOLCHAIN ?= $(if $(filter muos,$(PLATFORM)),tg5040,$(PLATFORM))
+IMAGE := ghcr.io/loveretro/$(TOOLCHAIN)-toolchain:latest
 # CI runs inside a container whose workspace is not a host path, so it shares volumes instead of bind-mounting.
 MOUNT ?= -v $(CURDIR):/work
 WORKDIR ?= /work
@@ -17,7 +19,7 @@ RELEASE_ZIP := Immich.Sync.pak.zip
 # Brick firmware CA bundle predates current roots; ship Mozilla's.
 CACERT := build/cacert.pem
 
-.PHONY: all pak release shell clean test deploy logs
+.PHONY: all pak release muxapp shell clean test deploy logs
 
 all:
 	$(call RUN,) make -f build.mk
@@ -39,6 +41,20 @@ release:
 	$(MAKE) pak PAK_PLATFORMS="$(PLATFORMS)"
 	rm -f build/$(RELEASE_ZIP)
 	cd "$(PAK)" && zip -qr ../$(RELEASE_ZIP) .
+
+MUXAPP_NAME := Immich Sync
+MUXAPP := build/$(MUXAPP_NAME).muxapp
+MUXAPP_STAGE := build/muxapp
+MUXAPP_RES := vendor/NextUI/skeleton/SYSTEM/res
+
+muxapp: $(CACERT)
+	$(MAKE) all PLATFORM=muos
+	rm -rf $(MUXAPP_STAGE) "$(MUXAPP)"
+	mkdir -p "$(MUXAPP_STAGE)/$(MUXAPP_NAME)/.system/res"
+	cp -r muxapp/mux_launch.sh muxapp/mux_lang.ini muxapp/glyph build/muos/immich.elf $(CACERT) pak/NotoEmoji.ttf pak/NotoEmoji-OFL.txt "$(MUXAPP_STAGE)/$(MUXAPP_NAME)/"
+	cp $(MUXAPP_RES)/assets@[234]x.png $(MUXAPP_RES)/inputs@[234]x.png $(MUXAPP_RES)/font1.ttf "$(MUXAPP_STAGE)/$(MUXAPP_NAME)/.system/res/"
+	chmod +x "$(MUXAPP_STAGE)/$(MUXAPP_NAME)/immich.elf" "$(MUXAPP_STAGE)/$(MUXAPP_NAME)/mux_launch.sh"
+	cd $(MUXAPP_STAGE) && zip -qr "../$(MUXAPP_NAME).muxapp" "$(MUXAPP_NAME)"
 
 shell:
 	$(call RUN,-it) /bin/bash

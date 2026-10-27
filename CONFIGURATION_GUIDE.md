@@ -2,6 +2,8 @@
 
 This pak can be configured through its own UI as well as via its preferences file at `.userdata/shared/Immich/prefs.txt`. You can access this via NextUI's HTTP Filebrowser pak, SSH, ADB, or by plugging the SD card into another computer.
 
+On muOS the file is inside the app folder instead: `MUOS/application/Immich Sync/.userdata/shared/Immich/prefs.txt`. The muOS build has no background daemon, so **Daemon Autostart** and **Background Sync** don't appear there.
+
 ## Connecting to Immich
 
 The app talks to Immich via an API key. There are two ways to give it one.
@@ -81,6 +83,10 @@ Thumbnails and previews are cached on the SD card.
 ### Screenshot Albums
 
 Pick extra albums (`extra_album_ids`) to include in **All Screenshots** alongside the match-key albums.
+
+### Follow muOS Theme
+
+muOS only (`follow_theme`, on by default). Colours the app from the active muOS theme and its selected colour variant; off uses NextUI's white-on-black MinUI palette. Takes effect the next time the app opens.
 
 ### Grid Size
 

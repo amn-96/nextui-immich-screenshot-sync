@@ -31,6 +31,13 @@ The zip is the same for every device: it contains a binary for each platform, an
 
 Pak store listing is pending.
 
+#### MustardOS (muOS)
+
+1. Download `Immich.Sync.muxapp` from the same release and copy it to `ARCHIVE/` on your SD card.
+2. On the device, open **Archive Manager** and install it. It shows up under **Applications** as **Immich Sync**.
+
+The muOS build has everything except the background daemon: screenshots upload when the app opens or with **Force Sync**. Its preferences file is `MUOS/application/Immich Sync/.userdata/shared/Immich/prefs.txt`.
+
 ### Quickstart
 See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for more details.
 
@@ -59,6 +66,7 @@ The app never deletes anything on your Immich server.
 | `tg5050` | TrimUI Smart Pro S | Compiles, untested |
 | `h700` | Anbernic RG CubeXX (BaseOS) | Tested |
 | `h700` | Anbernic RG35XX/RG40XX family | Untested |
+| `muos` | muOS on H700 and A133P devices (RG CubeXX, RG35XX/40XX, TrimUI Brick, ...) | Compiles, untested |
 
 If you're not on a Brick, the UI might break in some spots especially with text layouts. Reports from other devices are welcome via issues or discord -- please send screenshots if possible! 
 
@@ -70,11 +78,12 @@ Requires Docker and `git submodule update --init` (NextUI, cJSON, libwebp, SDL_t
     make pak      # assemble "build/Immich Sync.pak" for PLATFORM
     make release  # pak with every platform's binary, zipped to build/Immich.Sync.pak.zip
     make pak PLATFORM=h700   # any target takes PLATFORM (tg5040, tg5050, h700)
+    make muxapp   # muOS build, zipped to "build/Immich Sync.muxapp"
     make shell    # interactive toolchain shell
 
 ## Releasing
 
-Bump `version` (and `changelog`) in `pak.json`, commit, then push a matching tag, e.g. `git tag v1.0.1 && git push public v1.0.1`. GitHub Actions builds `Immich.Sync.pak.zip` and publishes the release; the tag must equal the `pak.json` version.
+Bump `version` (and `changelog`) in `pak.json`, commit, then push a matching tag, e.g. `git tag v1.0.1 && git push public v1.0.1`. GitHub Actions builds `Immich.Sync.pak.zip` and `Immich.Sync.muxapp` and publishes the release; the tag must equal the `pak.json` version.
 
 ## AI Disclosure
 This is AI-assisted af. I do have previous experience hand-writing little apps like this to talk to self-hosted services and my day job is a lot of Python (pre-AI and post-AI), but I haven't written anything in C since CS 101 so Claude did all the legwork to integrate with NextUI's tooling and libraries. I've reviewed the general structure of the code and all of the docs and functionality descriptions are proofed by me.

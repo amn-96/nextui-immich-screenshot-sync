@@ -210,17 +210,23 @@ static void force_sync(void) {
 	ui_alert(summary);
 }
 
+#ifdef NO_DAEMON
+enum { FORCE_SYNC_ROW, RESET_SYNC_ROW, SYNC_HEADER_ROW, SYNCED_ALBUM_ROW, MATCH_KEY_ROW };
+#else
 enum { FORCE_SYNC_ROW, RESET_SYNC_ROW, AUTOSTART_ROW, BACKGROUND_ROW, SYNC_HEADER_ROW, SYNCED_ALBUM_ROW, MATCH_KEY_ROW };
+#endif
 
 static void sync_menu(void) {
 	char album_text[ALBUM_NAME_LEN];
 	UiRow rows[] = {
 		{ UI_ROW_ACTION, "Force Sync", .description = "Upload new screenshots from this device to Immich now." },
 		{ UI_ROW_ACTION, "Reset Sync Settings", .description = "Reset sync album and the match key. Your data is not deleted." },
+#ifndef NO_DAEMON
 		{ UI_ROW_CYCLE, "Daemon Autostart", .values = ON_OFF, .value_count = 2, .value_index = prefs.daemon_autostart,
 			.description = "Run a background daemon from boot that uploads new screenshots as they appear. Pauses during sleep and games." },
 		{ UI_ROW_CYCLE, "Background Sync", .values = ON_OFF, .value_count = 2, .value_index = prefs.background_sync,
 			.description = "Keep uploading while a game is running. Off pauses the daemon until you exit the game." },
+#endif
 		{ UI_ROW_HEADER, "Immich Sync Settings for This Device" },
 		{ UI_ROW_DISABLED, "Synced Album", album_text, .description = "The Immich album screenshots upload to. Fixed after setup; use Reset Sync Settings to change it." },
 		{ UI_ROW_DISABLED, "Album Match Key", .description = "Albums ending in this show in All Screenshots; (none) shows only this device's album. Fixed after setup." },
@@ -236,6 +242,7 @@ static void sync_menu(void) {
 		else if (menu.selected == RESET_SYNC_ROW) {
 			if (ui_confirm("Reset sync settings?\n\nYour data is not deleted. This Device will ask for an album name again.")) prefs_reset_sync();
 		}
+#ifndef NO_DAEMON
 		else {
 			int autostart = rows[AUTOSTART_ROW].value_index;
 			if (autostart != prefs.daemon_autostart && system(autostart ? "./immich-sync.sh install" : "./immich-sync.sh uninstall")) {
@@ -246,6 +253,7 @@ static void sync_menu(void) {
 			prefs.background_sync = rows[BACKGROUND_ROW].value_index;
 			prefs_save();
 		}
+#endif
 	}
 }
 
@@ -327,7 +335,12 @@ static void albums_menu(void) {
 	free(albums);
 }
 
-enum { GRID_SIZE_ROW = 4, GRID_COLS_ROW, GRID_ROWS_ROW, SETTINGS_ROW_COUNT };
+#ifdef FOLLOW_OS_THEME
+#define THEME_ROWS 1
+#else
+#define THEME_ROWS 0
+#endif
+enum { THEME_ROW = 4, GRID_SIZE_ROW = THEME_ROW + THEME_ROWS, GRID_COLS_ROW, GRID_ROWS_ROW, SETTINGS_ROW_COUNT };
 
 void settings_run(void) {
 	char* grid_modes[] = { "Standard (4x3)", "Dense (8x6)", "Custom" };
@@ -337,6 +350,10 @@ void settings_run(void) {
 		{ UI_ROW_ACTION, "Sync Settings" },
 		{ UI_ROW_ACTION, "Cache" },
 		{ UI_ROW_ACTION, "Screenshot Albums", .description = "Pick extra albums to include in All Screenshots." },
+#ifdef FOLLOW_OS_THEME
+		{ UI_ROW_CYCLE, "Follow muOS Theme", .values = ON_OFF, .value_count = 2, .value_index = prefs.follow_theme,
+			.description = "Use the active muOS theme's colours. Takes effect next time Immich Sync opens." },
+#endif
 		{ UI_ROW_CYCLE, "Grid Size", .values = grid_modes, .value_count = ARRAY_LEN(grid_modes), .value_index = prefs.grid_mode,
 			.description = "Thumbnails per page: Standard 4x3, Dense 8x6 or a custom grid." },
 		{ UI_ROW_CYCLE, "Horizontal", .values = grid_counts, .value_count = GRID_MAX, .value_index = prefs.grid_custom_cols - 1,
@@ -351,7 +368,8 @@ void settings_run(void) {
 		UiEvent event = ui_menu_run(&menu);
 		if (event == UI_BACK) return;
 		if (event == UI_CHANGED) {
-			if (menu.selected == GRID_SIZE_ROW) prefs.grid_mode = rows[GRID_SIZE_ROW].value_index;
+			if (THEME_ROWS && menu.selected == THEME_ROW) prefs.follow_theme = rows[THEME_ROW].value_index;
+			else if (menu.selected == GRID_SIZE_ROW) prefs.grid_mode = rows[GRID_SIZE_ROW].value_index;
 			else if (menu.selected == GRID_COLS_ROW) prefs.grid_custom_cols = rows[GRID_COLS_ROW].value_index + 1;
 			else prefs.grid_custom_rows = rows[GRID_ROWS_ROW].value_index + 1;
 			prefs_save();

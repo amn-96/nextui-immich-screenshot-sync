@@ -2,6 +2,9 @@
 NEXTUI := vendor/NextUI/workspace
 COMMON := $(NEXTUI)/all/common
 PLAT := $(NEXTUI)/$(PLATFORM)/platform
+ifeq ($(PLATFORM),muos)
+PLAT := platform/muos
+endif
 BUILD := build/$(PLATFORM)
 LIBWEBP := $(BUILD)/libwebp
 MSETTINGS := $(BUILD)/msettings
@@ -23,9 +26,19 @@ CFLAGS += $(OPT) -I$(COMMON) -I$(PLAT) -Ivendor/cJSON -Ivendor/libwebp/src -I$(M
 ifeq ($(PLATFORM),h700)
 CFLAGS += -DBUNDLED_JPEG -DSTICKS_FROM_PLATFORM -Ivendor/stb
 endif
-LDFLAGS += -L$(MSETTINGS)/lib $(LIBWEBP)/libwebpdecoder.a $(SDLTTF)/libSDL2_ttf.a $(SDLTTF)/external/freetype/libfreetype.a -lmsettings
+LDFLAGS += $(LIBWEBP)/libwebpdecoder.a $(SDLTTF)/libSDL2_ttf.a $(SDLTTF)/external/freetype/libfreetype.a
+ifeq ($(PLATFORM),muos)
+# msettings is a stub compiled straight into the ELF; muOS owns brightness and volume.
+SOURCE += $(PLAT)/msettings.c
+CFLAGS += -DSCREENSHOTS_DIR=\"/run/muos/storage/screenshot\" -DDOWNLOADS_DIR=\"/mnt/mmc/Pictures/Immich\" \
+	-DNO_DAEMON -DSTICKS_FROM_PLATFORM -DFOLLOW_OS_THEME
+MSETTINGS_LIB :=
+else
+LDFLAGS += -L$(MSETTINGS)/lib -lmsettings
+MSETTINGS_LIB := $(MSETTINGS)/lib/libmsettings.so
+endif
 
-$(BUILD)/immich.elf: $(SOURCE) $(wildcard src/*.h) $(LIBWEBP)/libwebpdecoder.a $(SDLTTF)/libSDL2_ttf.a $(MSETTINGS)/lib/libmsettings.so
+$(BUILD)/immich.elf: $(SOURCE) $(wildcard src/*.h) $(LIBWEBP)/libwebpdecoder.a $(SDLTTF)/libSDL2_ttf.a $(MSETTINGS_LIB)
 	$(CC) $(SOURCE) -o $@ $(CFLAGS) $(LDFLAGS)
 
 $(LIBWEBP)/libwebpdecoder.a:

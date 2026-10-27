@@ -10,12 +10,13 @@ Native C (gnu99) app for NextUI handhelds: browses Immich albums and syncs devic
 - `src/worker.c`: the single background thread for network and decoding. The UI thread never blocks on I/O.
 - `src/immich.c` (API), `cache.c` (disk cache), `sync.c` (upload), `daemon.c` (background sync), `prefs.c`, `settings.c`, `text.c` (emoji-aware text).
 - `pak/`: launch script, hook script (`immich-sync.sh`), and assets shipped in the pak. `pak.json` (repo root) is the Pak Store manifest; a push to `main` that changes `pak.json` to an untagged version creates the tag on both hosts and publishes the GitHub release (`.github/workflows/release.yaml`, `.forgejo/workflows/release.yaml`).
+- `platform/muos/`: the muOS (MustardOS) platform layer, used in place of a vendored NextUI `platform/` dir. SDL GameController input, muOS-owned power/sleep, stub msettings. `muxapp/` holds the muOS launcher, name and glyph; `make muxapp` packs `build/Immich Sync.muxapp` with NextUI's res assets copied from the submodule.
 - `vendor/`: pinned submodules (NextUI common, cJSON, libwebp, SDL_ttf).
 - `tools/brick.py`: screenshots and button presses on a real Brick over ssh. It needs the gitignored `local/brick.env`.
 
 ## Working here
 
-- Build with `make` (in the Docker toolchain), test with `make test`, deploy to the Brick with `make deploy`. Builds must stay green for `tg5040`, `tg5050` and `h700`.
+- Build with `make` (in the Docker toolchain), test with `make test`, deploy to the Brick with `make deploy`. Builds must stay green for `tg5040`, `tg5050`, `h700` and `muos` (built with the tg5040 toolchain; links only `$PREFIX` SDL, never `/opt/nextui`). muOS has no daemon (`NO_DAEMON`) and gets its screen size, board, sticks and battery paths from env vars set in `muxapp/mux_launch.sh`.
 - Use NextUI's own primitives (`GFX_*`, `PAD_*`, theme colours, `font.*`) so the app looks native.
 - NextUI gotchas:
   - `GFX_blitPill*` only works at the asset's native height.

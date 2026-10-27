@@ -7,6 +7,8 @@
 #include <sys/time.h>
 
 #define SDCARD_ROOT "/tmp/immich-test-sdcard"
+#define SCREENSHOTS_DIR SDCARD_ROOT "/Screenshots"
+#define DOWNLOADS_DIR SDCARD_ROOT "/Pictures/Immich"
 #include "../src/immich.c"
 #include "../src/prefs.c"
 #include "../src/cache.c"

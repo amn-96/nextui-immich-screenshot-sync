@@ -19,6 +19,7 @@ typedef struct {
 	int cache_limit_mb;          // 0 = unlimited
 	int daemon_autostart;
 	int background_sync;
+	int follow_theme;            // muOS: mux_launch.sh colours the UI from the active muOS theme
 	int album_sort;              // ALBUM_SORT_*
 	int grid_mode;               // GRID_STANDARD, GRID_DENSE, GRID_CUSTOM
 	int grid_custom_cols;        // 1..GRID_MAX, used when grid_mode == GRID_CUSTOM
