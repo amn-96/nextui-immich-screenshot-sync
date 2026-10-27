@@ -1,0 +1,20 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+    paths: [pak.json]
+
+jobs:
+  tag:
+    runs-on: selfhost-runner
+    steps:
+      - uses: https://github.com/actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Tag the pak.json version
+        run: |
+          version=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' pak.json)
+          if git ls-remote --exit-code --tags origin "$version" >/dev/null; then exit 0; fi
+          git config user.name "forgejo-actions[bot]"
+          git config user.email "forgejo-actions[bot]@noreply.invalid"
+          git tag -a "$version" -m "Release $version"
+          git push origin "$version"
