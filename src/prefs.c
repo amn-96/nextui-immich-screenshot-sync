@@ -60,6 +60,7 @@ static void parse_extra_album_ids(char* csv) {
 void prefs_load(void) {
 	memset(&prefs, 0, sizeof(prefs));
 	prefs.cache_limit_mb = 2048;
+	prefs.follow_theme = 1;
 	prefs.grid_custom_cols = 6;
 	prefs.grid_custom_rows = 4;
 	mkdir_p(prefs_dir());
@@ -84,6 +85,7 @@ void prefs_load(void) {
 		else if (!strcmp(line, "cache_limit_mb")) prefs.cache_limit_mb = atoi(value);
 		else if (!strcmp(line, "daemon_autostart")) prefs.daemon_autostart = atoi(value);
 		else if (!strcmp(line, "background_sync")) prefs.background_sync = atoi(value);
+		else if (!strcmp(line, "follow_theme")) prefs.follow_theme = atoi(value);
 		else if (!strcmp(line, "album_sort")) prefs.album_sort = atoi(value);
 		else if (!strcmp(line, "grid_mode")) prefs.grid_mode = atoi(value);
 		else if (!strcmp(line, "grid_custom_cols")) prefs.grid_custom_cols = atoi(value);
@@ -101,8 +103,8 @@ void prefs_save(void) {
 
 	fprintf(file, "server_url=%s\napi_key=%s\nuser_email=%s\nalbum_label=%s\nmatch_key=%s\nalbum_id=%s\n",
 		prefs.server_url, prefs.api_key, prefs.user_email, prefs.album_label, prefs.match_key, prefs.album_id);
-	fprintf(file, "cache_limit_mb=%d\ndaemon_autostart=%d\nbackground_sync=%d\nalbum_sort=%d\ngrid_mode=%d\ngrid_custom_cols=%d\ngrid_custom_rows=%d\nextra_album_ids=",
-		prefs.cache_limit_mb, prefs.daemon_autostart, prefs.background_sync, prefs.album_sort,
+	fprintf(file, "cache_limit_mb=%d\ndaemon_autostart=%d\nbackground_sync=%d\nfollow_theme=%d\nalbum_sort=%d\ngrid_mode=%d\ngrid_custom_cols=%d\ngrid_custom_rows=%d\nextra_album_ids=",
+		prefs.cache_limit_mb, prefs.daemon_autostart, prefs.background_sync, prefs.follow_theme, prefs.album_sort,
 		prefs.grid_mode, prefs.grid_custom_cols, prefs.grid_custom_rows);
 	for (int i = 0; i < prefs.extra_album_count; i++) {
 		fprintf(file, "%s%s", i ? "," : "", prefs.extra_album_ids[i]);

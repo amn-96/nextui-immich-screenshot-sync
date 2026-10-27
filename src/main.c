@@ -171,13 +171,18 @@ static const char* sync_indicator(void) {
 }
 
 int main(int argc, char* argv[]) {
+#ifndef NO_DAEMON
 	if (argc > 1 && !strcmp(argv[1], "--sync-daemon")) return daemon_run();
+#endif
 
 	PWR_setCPUSpeed(CPU_SPEED_AUTO);
 
 	ui_init(GFX_init(MODE_MENU));
 	PAD_init();
 	PWR_init();
+#ifdef OS_OWNS_IDLE_SLEEP
+	PWR_disableAutosleep();
+#endif
 	InitSettings();
 	prefs_load();
 	worker_init();

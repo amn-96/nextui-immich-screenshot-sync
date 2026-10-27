@@ -40,3 +40,15 @@ Main menu: This Device · All Screenshots · Immich Albums · Settings
 - SDL2_image WebP support in toolchain? else JPEG thumbnails.
 - Immich v3: search/metadata cursor paging (`nextCursor`); upload without deviceId/deviceAssetId.
 - Preview stored resolution vs zoom usefulness (see tradeoff in chat).
+
+## muOS
+
+`PLATFORM=muos` builds the same app for MustardOS as a `.muxapp` that Archive Manager unzips into `/run/muos/storage/application/Immich Sync/`.
+
+- muOS has no app SDK, so `platform/muos/` implements NextUI's `PLAT_*` layer on top of the device's SDL2 and GLES, built with the tg5040 toolchain.
+- `SDCARD_PATH` is the installed app folder, so NextUI's `RES_PATH` (bundled `assets@Nx.png`, `inputs@Nx.png`, `font1.ttf`) and `SHARED_USERDATA_PATH` resolve inside the app.
+- Screen size, board name, stick count and battery sysfs paths come from `mux_launch.sh` via `GET_VAR`. Scale is 4 at 1080 px or taller, 3 at 768 px or taller, otherwise 2; `IMMICH_SCALE` overrides it.
+- muOS owns power, suspend, idle sleep, volume and brightness, so those `PLAT_*` and msettings calls are no-ops.
+- No daemon in v1 (`NO_DAEMON`). muOS has a boot hook (`MUOS/init/*.sh`) but no pre-launch or sleep hooks to park on.
+- Colours: `mux_launch.sh` writes NextUI's `minuisettings.txt` before each launch, from the active theme's schemes (merged in the muOS frontend's order) when `follow_theme` is on, else NextUI's MinUI palette.
+- Screenshots: `/run/muos/storage/screenshot`. Other downloads: `/mnt/mmc/Pictures/Immich`.
