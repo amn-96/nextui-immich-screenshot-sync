@@ -23,11 +23,21 @@ A [NextUI](https://github.com/LoveRetro/NextUI) pak built to sync your retro gam
 
 ### Installation
 
+#### NextUI
+
 1. Download `Immich.Sync.pak.zip` from the [latest release](https://github.com/amn-96/nextui-immich-screenshot-sync/releases/latest).
 2. On your SD card, create `Tools/<platform>/Immich Sync.pak/`, using your device's platform folder from the [table above](#device-support). For example, use `Tools/tg5040/Immich Sync.pak/` on a Brick.
 3. Unzip the contents into that folder.
 
 The zip is the same for every device: it contains a binary for each platform, and the pak runs the one matching the device it's on. Only the folder you put it in depends on your device.
+
+#### muOS
+
+1. Download `Immich.Sync.muxapp` from the same [release](https://github.com/amn-96/nextui-immich-screenshot-sync/releases/latest).
+2. Copy it to the `ARCHIVE` folder on either SD card (SD1 or SD2).
+3. On the device, open the **Archive Manager** app, select `Immich Sync.muxapp`, and press **A** to install. It then shows up under **Applications** as **Immich Sync**.
+
+The muOS build has everything except the background daemon: screenshots upload when the app opens or with **Force Sync**.
 
 Pak store listing is pending.
 
