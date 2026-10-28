@@ -2,8 +2,6 @@
 
 This pak can be configured through its own UI as well as via its preferences file at `.userdata/shared/Immich/prefs.txt`. You can access this via NextUI's HTTP Filebrowser pak, SSH, ADB, or by plugging the SD card into another computer.
 
-On muOS the file is inside the app folder instead: `MUOS/application/Immich Sync/.userdata/shared/Immich/prefs.txt`. The muOS build has no background daemon, so **Daemon Autostart** and **Background Sync** don't appear there.
-
 ## Connecting to Immich
 
 The app talks to Immich via an API key. There are two ways to give it one.
@@ -59,15 +57,22 @@ Server URL (`server_url`), Email (`user_email`), Password and **Sign In** (see a
 |---|---|
 | **Force Sync** | Upload new screenshots now. |
 | **Reset Sync Settings** | Clears this device's album and match key so you can set them up again. Nothing is deleted on Immich. |
-| **Daemon Autostart** (`daemon_autostart`) | Starts a background daemon at boot that uploads new screenshots as they appear. Pauses during sleep. |
-| **Background Sync** (`background_sync`) | Lets the daemon keep uploading while a game runs. Off pauses it until you exit the game. |
+| **Daemon Autostart** (`daemon_autostart`) | Starts a background daemon at boot that uploads new screenshots as they appear. Pauses during sleep. (NextUI only) |
+| **Background Sync** (`background_sync`) | Lets the daemon keep uploading while a game runs. Off pauses it until you exit the game. (NextUI only) |
 | **Synced Album**, **Album Match Key** | Read-only. Set during first-run setup (`album_label`, `match_key`, `album_id`). The key shows `(none)` if you chose no matching. |
 
 #### How "All Screenshots" Works
 
-The synced album you created during onboarding is named `<album name><match key>`, e.g. `Brick_NextUI`. The contents of any album on your Immich server **ending in the same match key**(case-sensitive) will automatically show up in **All Screenshots**. I do something like `Brick_Screenshots`, `Odin_Screenshots`, `PC_Screenshots`.
+The synced album you created during onboarding is named `<album name><match key>`, e.g. `Brick_NextUI`. The contents of any album on your Immich server **ending in the same match key** (case-sensitive) will automatically show up in **All Screenshots**. I do something like `Brick_Screenshots`, `Odin_Screenshots`, `PC_Screenshots`.
 
-During onboarding the **Album Match Key** row cycles with left/right: `(none)`, the default `_NextUI`, and **Custom...**, which opens the keyboard to type your own key (e.g. `_Screenshots`). With `(none)` the key is empty (`match_key=` in `prefs.txt`), the synced album is named just `<album name>`, and **All Screenshots** shows only this device's album plus any extra albums you pick. The key is fixed after setup; use **Reset Sync Settings** to change it.
+During onboarding the **Album Match Key** row has the following options:
+- `(none)`: press left on the D-pad
+- `_NextUI`: the default
+- **Custom...**: press right on the D-pad to open the keyboard and type your own key (e.g. `_Screenshots`).
+
+With `(none)` the key is empty (`match_key=` in `prefs.txt`), the synced album is named just `<album name>`, and **All Screenshots** shows only this device's album plus any extra albums you pick.
+
+The key is fixed after setup; use **Reset Sync Settings** to change it. This won't delete any images, locally or on Immich. If you sync to a new album, Immich deduplicates during the sync and simply adds the previously synced content to the new album.
 
 ### Cache
 
@@ -83,10 +88,6 @@ Thumbnails and previews are cached on the SD card.
 ### Screenshot Albums
 
 Pick extra albums (`extra_album_ids`) to include in **All Screenshots** alongside the match-key albums.
-
-### Follow muOS Theme
-
-muOS only (`follow_theme`, on by default). Colours the app from the active muOS theme and its selected colour variant; off uses NextUI's white-on-black MinUI palette. Takes effect the next time the app opens.
 
 ### Grid Size
 
