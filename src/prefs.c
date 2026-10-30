@@ -82,6 +82,7 @@ void prefs_load(void) {
 		else if (!strcmp(line, "album_label")) copy_str(prefs.album_label, sizeof(prefs.album_label), value);
 		else if (!strcmp(line, "match_key")) copy_str(prefs.match_key, sizeof(prefs.match_key), value);
 		else if (!strcmp(line, "album_id")) copy_str(prefs.album_id, sizeof(prefs.album_id), value);
+		else if (!strcmp(line, "upload_tag")) copy_str(prefs.upload_tag, sizeof(prefs.upload_tag), value);
 		else if (!strcmp(line, "cache_limit_mb")) prefs.cache_limit_mb = atoi(value);
 		else if (!strcmp(line, "daemon_autostart")) prefs.daemon_autostart = atoi(value);
 		else if (!strcmp(line, "background_sync")) prefs.background_sync = atoi(value);
@@ -101,8 +102,8 @@ void prefs_save(void) {
 	FILE* file = fopen(path, "w");
 	if (!file) return;
 
-	fprintf(file, "server_url=%s\napi_key=%s\nuser_email=%s\nalbum_label=%s\nmatch_key=%s\nalbum_id=%s\n",
-		prefs.server_url, prefs.api_key, prefs.user_email, prefs.album_label, prefs.match_key, prefs.album_id);
+	fprintf(file, "server_url=%s\napi_key=%s\nuser_email=%s\nalbum_label=%s\nmatch_key=%s\nalbum_id=%s\nupload_tag=%s\n",
+		prefs.server_url, prefs.api_key, prefs.user_email, prefs.album_label, prefs.match_key, prefs.album_id, prefs.upload_tag);
 	fprintf(file, "cache_limit_mb=%d\ndaemon_autostart=%d\nbackground_sync=%d\nfollow_theme=%d\nalbum_sort=%d\ngrid_mode=%d\ngrid_custom_cols=%d\ngrid_custom_rows=%d\nextra_album_ids=",
 		prefs.cache_limit_mb, prefs.daemon_autostart, prefs.background_sync, prefs.follow_theme, prefs.album_sort,
 		prefs.grid_mode, prefs.grid_custom_cols, prefs.grid_custom_rows);
@@ -127,6 +128,6 @@ void prefs_grid_size(int* cols, int* rows) {
 }
 
 void prefs_reset_sync(void) {
-	prefs.album_label[0] = prefs.match_key[0] = prefs.album_id[0] = '\0';
+	prefs.album_label[0] = prefs.match_key[0] = prefs.album_id[0] = prefs.upload_tag[0] = '\0';
 	prefs_save();
 }

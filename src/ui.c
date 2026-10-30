@@ -384,21 +384,34 @@ static void drawKeyboard(char* title, const char* text, const char** layer, int 
 	GFX_flip(screen);
 }
 
+// Key centre in half keys from the grid's left edge; rows are centred, so shorter rows shift right.
+static int key_x(int col, int row_len) {
+	return KEY_COLS - row_len + 2 * col + 1;
+}
+
+// The key nearest x; a tie between two keys (half-key offset rows) always takes the left one.
+static int key_under(int x, int row_len) {
+	int col = (x - (KEY_COLS - row_len) - 1) / 2;
+	return col < 0 ? 0 : col >= row_len ? row_len - 1 : col;
+}
+
 int ui_text_input(char* title, const char* initial_value, char* out, size_t out_size) {
 	char text[TEXT_CAPACITY];
 	size_t capacity = out_size < sizeof(text) ? out_size : sizeof(text);
 	snprintf(text, capacity, "%s", initial_value);
 	size_t length = strlen(text);
-	int shift = 0, symbols = 0, row = 1, col = 0, dirty = 1;
+	// aim_x is the on-screen x (in half keys) that up/down keep, so a round trip returns to the same key.
+	int shift = 0, symbols = 0, row = 1, aim_x = 1, dirty = 1;
 	for (;;) {
 		GFX_startFrame();
 		PAD_poll();
 		const char** layer = KEY_LAYERS[symbols ? 2 : shift];
 		int row_len = strlen(layer[row]);
+		int col = key_under(aim_x, row_len);
 		if (PAD_justRepeated(BTN_UP)) row = (row + KEY_ROWS - 1) % KEY_ROWS;
 		else if (PAD_justRepeated(BTN_DOWN)) row = (row + 1) % KEY_ROWS;
-		else if (PAD_justRepeated(BTN_LEFT)) col = (col + row_len - 1) % row_len;
-		else if (PAD_justRepeated(BTN_RIGHT)) col = (col + 1) % row_len;
+		else if (PAD_justRepeated(BTN_LEFT)) aim_x = key_x((col + row_len - 1) % row_len, row_len);
+		else if (PAD_justRepeated(BTN_RIGHT)) aim_x = key_x((col + 1) % row_len, row_len);
 		else if (PAD_justPressed(BTN_L1)) shift = !shift;
 		else if (PAD_justPressed(BTN_R1)) symbols = !symbols;
 		else if (PAD_justPressed(BTN_START)) {
@@ -417,10 +430,9 @@ int ui_text_input(char* title, const char* initial_value, char* out, size_t out_
 		}
 		layer = KEY_LAYERS[symbols ? 2 : shift];
 		row_len = strlen(layer[row]);
-		if (col >= row_len) col = row_len - 1;
 		PWR_update(&dirty, &show_setting, NULL, NULL);
 		if (dirty || PAD_anyPressed()) {
-			drawKeyboard(title, text, layer, row, col);
+			drawKeyboard(title, text, layer, row, key_under(aim_x, row_len));
 			dirty = 0;
 		}
 		else GFX_sync();

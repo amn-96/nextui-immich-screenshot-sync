@@ -14,7 +14,7 @@ The app talks to Immich via an API key. There are two ways to give it one.
 
 The app logs in once (`POST /api/auth/login`) and uses that session to create an API key named `NextUI <hostname>` (`POST /api/api-keys`). Only the server URL, email and key are saved. The password is never written to disk, and the session token is discarded.
 
-The key it creates is limited to what the app needs. None of these permissions can delete anything:
+The key it creates is limited to what the app needs. None of these permissions can delete an asset or album:
 
 | Permission | Used for |
 |---|---|
@@ -26,6 +26,11 @@ The key it creates is limited to what the app needs. None of these permissions c
 | `album.create` | Creating this device's album |
 | `albumAsset.create` | Adding uploads to the album |
 | `user.read` | Showing your Immich user name |
+| `tag.read` | Listing tags for **Remove Tags from Synced Images** |
+| `tag.create` | Creating the upload tag |
+| `tag.asset` | Adding and removing tags on synced screenshots |
+
+Keys created before v1.3.0 lack the `tag.*` permissions. Choose **Sign In** again (or add them to your own key) to use upload tags; without them, tag actions show the server's error and everything else keeps working.
 
 You can see or revoke the key in the Immich web UI under **Account Settings > API Keys**.
 
@@ -56,9 +61,12 @@ Server URL (`server_url`), Email (`user_email`), Password and **Sign In** (see a
 | Setting | What it does |
 |---|---|
 | **Force Sync** | Upload new screenshots now. |
-| **Reset Sync Settings** | Clears this device's album and match key so you can set them up again. Nothing is deleted on Immich. |
+| **Upload Tag** (`upload_tag`, empty = none) | Immich tag added to every screenshot synced from now on. See [Upload Tags](#upload-tags). |
+| **Apply Current Tag to Synced Images** | Asks first, then adds the Upload Tag to every screenshot already in this device's album. Images that already have it are left alone. |
+| **Remove Tags from Synced Images** | Asks first, then removes **all** tags (not just the Upload Tag) from every screenshot in this device's album. The images and the tags themselves are kept. |
 | **Daemon Autostart** (`daemon_autostart`) | Starts a background daemon at boot that uploads new screenshots as they appear. Pauses during sleep. (NextUI only) |
 | **Background Sync** (`background_sync`) | Lets the daemon keep uploading while a game runs. Off pauses it until you exit the game. (NextUI only) |
+| **Reset Sync Settings** | Asks first, then clears this device's album, match key and upload tag so you can set them up again. Nothing is deleted on Immich. |
 | **Synced Album**, **Album Match Key** | Read-only. Set during first-run setup (`album_label`, `match_key`, `album_id`). The key shows `(none)` if you chose no matching. |
 
 #### How "All Screenshots" Works
@@ -73,6 +81,15 @@ During onboarding the **Album Match Key** row has the following options:
 With `(none)` the key is empty (`match_key=` in `prefs.txt`), the synced album is named just `<album name>`, and **All Screenshots** shows only this device's album plus any extra albums you pick.
 
 The key is fixed after setup; use **Reset Sync Settings** to change it. This won't delete any images, locally or on Immich. If you sync to a new album, Immich deduplicates during the sync and simply adds the previously synced content to the new album.
+
+#### Upload Tags
+
+During onboarding and in **Sync Settings**, the **Upload Tag** row has the following options:
+- **No Tags**: press left on the D-pad
+- `handheld-synced-screenshots`: the default
+- **Custom...**: press right on the D-pad to type your own tag
+
+The tag is created in Immich if missing. Changing it only affects future syncs; use **Apply Current Tag to Synced Images** to tag what is already synced, or **Remove Tags from Synced Images** to start clean. If tagging fails during a sync (e.g. the key lost its `tag.*` permissions), the screenshots still upload to the album but are reported as failed and retried on the next sync.
 
 ### Cache
 

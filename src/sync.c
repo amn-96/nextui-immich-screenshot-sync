@@ -199,7 +199,7 @@ static int end_run(SyncState state, const char* error) {
 	return state == SYNC_FAILED ? -1 : 0;
 }
 
-// Uploads what the server lacks, then adds every file the server has (new or duplicate) to the album.
+// Uploads what the server lacks, then adds every file the server has (new or duplicate) to the album and tag.
 static void sync_batch(SyncEntry** batch, int count) {
 	const char* paths[BATCH_SIZE];
 	const char* hashes[BATCH_SIZE];
@@ -232,7 +232,8 @@ static void sync_batch(SyncEntry** batch, int count) {
 	}
 	if (!added_count) return;
 
-	int added_ok = immich_add_to_album(prefs.album_id, asset_ids, added_count) == 0;
+	int added_ok = immich_add_to_album(prefs.album_id, asset_ids, added_count) == 0
+		&& (!prefs.upload_tag[0] || immich_tag_assets(prefs.upload_tag, asset_ids, added_count) == 0);
 	for (int i = 0; i < count; i++) {
 		if (!batch[i]->asset_id[0]) continue;
 		if (!added_ok) resolve(&status.failed, batch[i], immich_error());

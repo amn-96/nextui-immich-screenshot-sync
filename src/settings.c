@@ -25,6 +25,23 @@ static void edit_field(char* title, char* field, size_t size) {
 }
 
 #define NO_MATCH_KEY "(none)"
+#define NO_TAG "No Tags"
+
+enum { CHOICE_NONE, CHOICE_DEFAULT, CHOICE_CUSTOM };
+
+// CYCLE rows of { none, default, custom }: landing on custom opens the keyboard; cancelling or clearing it falls back to default.
+static void edit_custom_choice(UiRow* row, char* custom, size_t size) {
+	if (row->value_index == CHOICE_CUSTOM && (!ui_text_input(row->label, custom, custom, size) || !custom[0]))
+		row->value_index = CHOICE_DEFAULT;
+}
+
+static const char* choice_value(const UiRow* row, const char* default_value, const char* custom) {
+	return row->value_index == CHOICE_NONE ? "" : row->value_index == CHOICE_DEFAULT ? default_value : custom;
+}
+
+static void custom_label(char* label, size_t size, const char* custom) {
+	snprintf(label, size, "%s", custom[0] ? custom : "Custom...");
+}
 
 static char* text_or_unset(char* text) {
 	return text[0] ? text : "Not set";
@@ -86,30 +103,37 @@ static int add_account_rows(UiRow* rows, int count, AccountText* text) {
 	return count == start + 1 ? start : count;
 }
 
+static int sync_set_up(void) {
+	if (!prefs.album_id[0]) ui_alert("Open This Device first to set up sync");
+	return prefs.album_id[0] != '\0';
+}
+
+enum { URL_ROW, EMAIL_ROW, PASSWORD_ROW, SIGN_IN_ROW, IMMICH_ROW_COUNT };
+
 static void immich_menu(void) {
 	char password[128] = "";
 	AccountText text;
-	UiRow rows[10] = {
+	UiRow rows[IMMICH_ROW_COUNT + 6] = {
 		{ UI_ROW_ACTION, "Server URL", .description = "Address of your Immich server, e.g. https://photos.example.com." },
 		{ UI_ROW_ACTION, "Email", .description = "Immich account email used to sign in." },
 		{ UI_ROW_ACTION, "Password", .description = "Used once to sign in. Only an API key is stored on the device." },
 		{ UI_ROW_ACTION, "Sign In", .description = "Log in and create the API key this device uses from now on." },
 	};
-	UiMenu menu = { "Immich Settings", UI_STYLE_LIST, "OKAY", rows, add_account_rows(rows, 4, &text) };
+	UiMenu menu = { "Immich Settings", UI_STYLE_LIST, "OKAY", rows, add_account_rows(rows, IMMICH_ROW_COUNT, &text) };
 	for (;;) {
-		rows[0].text = text_or_unset(prefs.server_url);
-		rows[1].text = text_or_unset(prefs.user_email);
-		rows[2].text = password[0] ? "********" : "Not set";
+		rows[URL_ROW].text = text_or_unset(prefs.server_url);
+		rows[EMAIL_ROW].text = text_or_unset(prefs.user_email);
+		rows[PASSWORD_ROW].text = password[0] ? "********" : "Not set";
 		UiEvent event = ui_menu_run(&menu);
 		if (event == UI_BACK) return;
-		if (menu.selected == 0) edit_field("Server URL", prefs.server_url, sizeof(prefs.server_url));
-		else if (menu.selected == 1) edit_field("Email", prefs.user_email, sizeof(prefs.user_email));
-		else if (menu.selected == 2) ui_text_input("Password", "", password, sizeof(password));
+		if (menu.selected == URL_ROW) edit_field("Server URL", prefs.server_url, sizeof(prefs.server_url));
+		else if (menu.selected == EMAIL_ROW) edit_field("Email", prefs.user_email, sizeof(prefs.user_email));
+		else if (menu.selected == PASSWORD_ROW) ui_text_input("Password", "", password, sizeof(password));
 		else {
 			ui_flash("Signing in...");
 			if (immich_login(prefs.server_url, prefs.user_email, password) == 0) {
 				ui_alert("Signed in");
-				menu.row_count = add_account_rows(rows, 4, &text);
+				menu.row_count = add_account_rows(rows, IMMICH_ROW_COUNT, &text);
 			}
 			else ui_alert((char*)immich_error());
 		}
@@ -131,42 +155,44 @@ int onboarding_run(void) {
 		return 0;
 	}
 
-	enum { KEY_NONE, KEY_DEFAULT, KEY_CUSTOM };
-	char label[sizeof(prefs.album_label)] = "", custom_key[sizeof(prefs.match_key)] = "";
-	char label_text[sizeof(label)], custom_text[sizeof(custom_key)], album_name[ALBUM_NAME_LEN];
+	char label[sizeof(prefs.album_label)] = "", custom_key[sizeof(prefs.match_key)] = "", custom_tag[sizeof(prefs.upload_tag)] = "";
+	char label_text[sizeof(label)], custom_text[sizeof(custom_key)], custom_tag_text[sizeof(custom_tag)], album_name[ALBUM_NAME_LEN];
 	char* key_labels[] = { NO_MATCH_KEY, DEFAULT_MATCH_KEY, custom_text };
+	char* tag_labels[] = { NO_TAG, DEFAULT_UPLOAD_TAG, custom_tag_text };
 	UiRow rows[] = {
 		{ UI_ROW_ACTION, "Album Name for this Device", label_text, .description = "Names this device's album, e.g. \"Brick\". Required." },
-		{ UI_ROW_CYCLE, "Album Match Key", .values = key_labels, .value_count = ARRAY_LEN(key_labels), .value_index = KEY_DEFAULT,
+		{ UI_ROW_CYCLE, "Album Match Key", .values = key_labels, .value_count = ARRAY_LEN(key_labels), .value_index = CHOICE_DEFAULT,
 			.description = "Ends the album name, case-sensitive. Albums with the same ending show in All Screenshots. (none) turns matching off; Custom... types your own. Keep the default unless you know why." },
+		{ UI_ROW_CYCLE, "Upload Tag", .values = tag_labels, .value_count = ARRAY_LEN(tag_labels), .value_index = CHOICE_DEFAULT,
+			.description = "Immich tag added to every synced screenshot. Left for No Tags; Custom... types your own. Changeable later in Sync Settings." },
 		{ UI_ROW_READOUT, "Album", album_name, .description = "The Immich album your screenshots will upload to. It is created if missing, never deleted." },
 		{ UI_ROW_ACTION, "Confirm", .description = "Create or find the album and start syncing. Name and key cannot be edited afterwards." },
 	};
 	UiMenu menu = { "Sync Setup", UI_STYLE_LIST, "OKAY", rows, ARRAY_LEN(rows) };
 	for (;;) {
 		snprintf(label_text, sizeof(label_text), "%s", text_or_unset(label));
-		snprintf(custom_text, sizeof(custom_text), "%s", custom_key[0] ? custom_key : "Custom...");
-		int key_index = rows[1].value_index;
-		const char* key = key_index == KEY_NONE ? "" : key_index == KEY_DEFAULT ? DEFAULT_MATCH_KEY : custom_key;
+		custom_label(custom_text, sizeof(custom_text), custom_key);
+		custom_label(custom_tag_text, sizeof(custom_tag_text), custom_tag);
+		const char* key = choice_value(&rows[1], DEFAULT_MATCH_KEY, custom_key);
+		const char* tag = choice_value(&rows[2], DEFAULT_UPLOAD_TAG, custom_tag);
 		snprintf(album_name, sizeof(album_name), "%s%s", label[0] ? label : "?", key);
 		UiEvent event = ui_menu_run(&menu);
 		if (event == UI_BACK) return 0;
 		if (menu.selected == 0) ui_text_input("Album Name for this Device", label, label, sizeof(label));
-		else if (event == UI_CHANGED && menu.selected == 1 && rows[1].value_index == KEY_CUSTOM) {
-			if (!ui_text_input("Album Match Key", custom_key, custom_key, sizeof(custom_key)) || !custom_key[0])
-				rows[1].value_index = KEY_DEFAULT;
-		}
-		else if (menu.selected == 3) {
-			char album_id[PREFS_ID_LEN];
+		else if (menu.selected == 1) edit_custom_choice(&rows[1], custom_key, sizeof(custom_key));
+		else if (menu.selected == 2) edit_custom_choice(&rows[2], custom_tag, sizeof(custom_tag));
+		else if (menu.selected == 4) {
+			char album_id[PREFS_ID_LEN], tag_id[PREFS_ID_LEN];
 			if (!label[0]) {
 				ui_alert("Enter an album name");
 				continue;
 			}
 			ui_flash("Setting up album...");
-			if (immich_ensure_album(album_name, album_id)) ui_alert((char*)immich_error());
+			if ((tag[0] && immich_ensure_tag(tag, tag_id)) || immich_ensure_album(album_name, album_id)) ui_alert((char*)immich_error());
 			else {
 				snprintf(prefs.album_label, sizeof(prefs.album_label), "%s", label);
 				snprintf(prefs.match_key, sizeof(prefs.match_key), "%s", key);
+				snprintf(prefs.upload_tag, sizeof(prefs.upload_tag), "%s", tag);
 				snprintf(prefs.album_id, sizeof(prefs.album_id), "%s", album_id);
 				prefs_save();
 				return 1;
@@ -176,10 +202,7 @@ int onboarding_run(void) {
 }
 
 static void force_sync(void) {
-	if (!prefs.album_id[0]) {
-		ui_alert("Open This Device first to set up sync");
-		return;
-	}
+	if (!sync_set_up()) return;
 	static char* hints[] = { "B", "CANCEL", NULL };
 	SyncStatus progress;
 	char headline[64];
@@ -211,37 +234,99 @@ static void force_sync(void) {
 }
 
 #ifdef NO_DAEMON
-enum { FORCE_SYNC_ROW, RESET_SYNC_ROW, SYNC_HEADER_ROW, SYNCED_ALBUM_ROW, MATCH_KEY_ROW };
+enum { FORCE_SYNC_ROW, TAG_ROW, APPLY_TAG_ROW, REMOVE_TAGS_ROW, RESET_SYNC_ROW, SYNC_HEADER_ROW, SYNCED_ALBUM_ROW, MATCH_KEY_ROW };
 #else
-enum { FORCE_SYNC_ROW, RESET_SYNC_ROW, AUTOSTART_ROW, BACKGROUND_ROW, SYNC_HEADER_ROW, SYNCED_ALBUM_ROW, MATCH_KEY_ROW };
+enum { FORCE_SYNC_ROW, TAG_ROW, APPLY_TAG_ROW, REMOVE_TAGS_ROW, AUTOSTART_ROW, BACKGROUND_ROW, RESET_SYNC_ROW, SYNC_HEADER_ROW, SYNCED_ALBUM_ROW, MATCH_KEY_ROW };
 #endif
 
+// tag NULL removes every tag from this device's synced screenshots instead of adding tag.
+static void change_synced_tags(const char* tag, char* confirm_message) {
+	if (!sync_set_up() || !ui_confirm(confirm_message)) return;
+	ui_flash("Updating tags...");
+	ImmichAsset* assets;
+	int count;
+	if (immich_album_assets_all((const char*[]){ prefs.album_id }, 1, &assets, &count)) {
+		ui_alert((char*)immich_error());
+		return;
+	}
+	const char** asset_ids = malloc((count + 1) * sizeof(*asset_ids));
+	for (int i = 0; i < count; i++) asset_ids[i] = assets[i].id;
+	if (!count) ui_alert("No synced screenshots yet");
+	else if (tag ? immich_tag_assets(tag, asset_ids, count) : immich_untag_all(asset_ids, count)) ui_alert((char*)immich_error());
+	else ui_alert("Tags updated");
+	free(asset_ids);
+	free(assets);
+}
+
+static void load_tag_choice(UiRow* row, char* custom_tag, size_t size) {
+	row->value_index = !prefs.upload_tag[0] ? CHOICE_NONE : strcmp(prefs.upload_tag, DEFAULT_UPLOAD_TAG) ? CHOICE_CUSTOM : CHOICE_DEFAULT;
+	if (row->value_index == CHOICE_CUSTOM) snprintf(custom_tag, size, "%s", prefs.upload_tag);
+}
+
 static void sync_menu(void) {
-	char album_text[ALBUM_NAME_LEN];
+	char album_text[ALBUM_NAME_LEN], custom_tag[sizeof(prefs.upload_tag)] = "", custom_tag_text[sizeof(custom_tag)];
+	char* tag_labels[] = { NO_TAG, DEFAULT_UPLOAD_TAG, custom_tag_text };
 	UiRow rows[] = {
 		{ UI_ROW_ACTION, "Force Sync", .description = "Upload new screenshots from this device to Immich now." },
-		{ UI_ROW_ACTION, "Reset Sync Settings", .description = "Reset sync album and the match key. Your data is not deleted." },
+		{ UI_ROW_CYCLE, "Upload Tag", .values = tag_labels, .value_count = ARRAY_LEN(tag_labels),
+			.description = "Immich tag added to every screenshot synced from now on. Left for No Tags; Custom... types your own." },
+		{ UI_ROW_ACTION, "Apply Current Tag to Synced Images",
+			.description = "Add the Upload Tag to every screenshot already synced from this device. Images that have it keep one copy." },
+		{ UI_ROW_ACTION, "Remove Tags from Synced Images",
+			.description = "Remove ALL tags, not just the Upload Tag, from every screenshot synced from this device. Images and tags are kept." },
 #ifndef NO_DAEMON
 		{ UI_ROW_CYCLE, "Daemon Autostart", .values = ON_OFF, .value_count = 2, .value_index = prefs.daemon_autostart,
 			.description = "Run a background daemon from boot that uploads new screenshots as they appear. Pauses during sleep and games." },
 		{ UI_ROW_CYCLE, "Background Sync", .values = ON_OFF, .value_count = 2, .value_index = prefs.background_sync,
 			.description = "Keep uploading while a game is running. Off pauses the daemon until you exit the game." },
 #endif
+		{ UI_ROW_ACTION, "Reset Sync Settings", .description = "Reset sync album, match key and upload tag. Your data is not deleted." },
 		{ UI_ROW_HEADER, "Immich Sync Settings for This Device" },
 		{ UI_ROW_DISABLED, "Synced Album", album_text, .description = "The Immich album screenshots upload to. Fixed after setup; use Reset Sync Settings to change it." },
 		{ UI_ROW_DISABLED, "Album Match Key", .description = "Albums ending in this show in All Screenshots; (none) shows only this device's album. Fixed after setup." },
 	};
+	load_tag_choice(&rows[TAG_ROW], custom_tag, sizeof(custom_tag));
 	UiMenu menu = { "Sync Settings", UI_STYLE_LIST, "OKAY", rows, ARRAY_LEN(rows) };
 	for (;;) {
 		prefs_synced_album_name(album_text, sizeof(album_text));
 		rows[SYNCED_ALBUM_ROW].text = prefs.album_id[0] ? album_text : "Not set up";
 		rows[MATCH_KEY_ROW].text = !prefs.album_id[0] ? "Not set" : prefs.match_key[0] ? prefs.match_key : NO_MATCH_KEY;
+		custom_label(custom_tag_text, sizeof(custom_tag_text), custom_tag);
 		UiEvent event = ui_menu_run(&menu);
 		if (event == UI_BACK) return;
 		if (menu.selected == FORCE_SYNC_ROW) force_sync();
 		else if (menu.selected == RESET_SYNC_ROW) {
-			if (ui_confirm("Reset sync settings?\n\nYour data is not deleted. This Device will ask for an album name again.")) prefs_reset_sync();
+			if (ui_confirm("Reset sync settings?\n\nYour data is not deleted. This Device will ask for an album name again.")) {
+				prefs_reset_sync();
+				load_tag_choice(&rows[TAG_ROW], custom_tag, sizeof(custom_tag));
+			}
 		}
+		else if (menu.selected == TAG_ROW) {
+			edit_custom_choice(&rows[TAG_ROW], custom_tag, sizeof(custom_tag));
+			const char* tag = choice_value(&rows[TAG_ROW], DEFAULT_UPLOAD_TAG, custom_tag);
+			char tag_id[PREFS_ID_LEN];
+			ui_flash("Checking tag...");
+			if (tag[0] && immich_ensure_tag(tag, tag_id)) {
+				ui_alert((char*)immich_error());
+				load_tag_choice(&rows[TAG_ROW], custom_tag, sizeof(custom_tag));
+			}
+			else {
+				snprintf(prefs.upload_tag, sizeof(prefs.upload_tag), "%s", tag);
+				prefs_save();
+			}
+		}
+		else if (menu.selected == APPLY_TAG_ROW) {
+			if (!prefs.upload_tag[0]) {
+				ui_alert("Choose an Upload Tag first");
+				continue;
+			}
+			char message[256];
+			snprintf(message, sizeof(message), "Add the tag \"%s\" to every screenshot synced from this device?\n\n"
+				"Images that already have it are left alone; other tags stay.", prefs.upload_tag);
+			change_synced_tags(prefs.upload_tag, message);
+		}
+		else if (menu.selected == REMOVE_TAGS_ROW) change_synced_tags(NULL, "Remove ALL tags from every screenshot synced from this device?\n\n"
+			"This clears every tag on those images in Immich, not just the Upload Tag. The images and tags themselves are kept.");
 #ifndef NO_DAEMON
 		else {
 			int autostart = rows[AUTOSTART_ROW].value_index;

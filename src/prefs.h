@@ -6,6 +6,7 @@
 #define PREFS_MAX_EXTRA_ALBUMS 32
 #define PREFS_ID_LEN 40
 #define DEFAULT_MATCH_KEY "_NextUI"
+#define DEFAULT_UPLOAD_TAG "handheld-synced-screenshots"
 
 // Persisted as key=value lines in $SHARED_USERDATA_PATH/Immich/prefs.txt.
 // Users may hand-edit server_url/api_key there instead of logging in on device.
@@ -16,6 +17,7 @@ typedef struct {
 	char album_label[64];        // synced album is "<album_label><match_key>"
 	char match_key[32];          // valid once album_id is set, and may then be empty (no matching); fixed until Reset Sync Settings
 	char album_id[40];           // synced album id, set when onboarding creates/finds it
+	char upload_tag[64];         // Immich tag given to every synced screenshot, "" for none
 	int cache_limit_mb;          // 0 = unlimited
 	int daemon_autostart;
 	int background_sync;
@@ -43,7 +45,7 @@ void mkdir_p(const char* dir);
 // An empty key matches only the synced album.
 int is_match_album(const char* name);
 void prefs_synced_album_name(char* out, size_t size);
-// Clears album_label/match_key/album_id and saves; caches and server albums are untouched.
+// Clears album_label/match_key/album_id/upload_tag and saves; caches and server albums are untouched.
 void prefs_reset_sync(void);
 
 #endif

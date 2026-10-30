@@ -18,6 +18,7 @@
 
 static const char* KEY_PERMISSIONS[] = {
 	"asset.read", "asset.view", "asset.upload", "asset.download", "album.read", "album.create", "albumAsset.create", "user.read",
+	"tag.read", "tag.create", "tag.asset",
 };
 
 #define LIST_PAGE_SIZE 1000
@@ -493,5 +494,58 @@ int immich_add_to_album(const char* album_id, const char** asset_ids, int count)
 	snprintf(path, sizeof(path), "/albums/%s/assets", album_id);
 	int status = request(&(Request){.method = "PUT", .path = path, .json_body = body});
 	free(body);
+	return status;
+}
+
+int immich_ensure_tag(const char* name, char id_out[40]) {
+	cJSON* upsert = cJSON_CreateObject();
+	cJSON_AddItemToArray(cJSON_AddArrayToObject(upsert, "tags"), cJSON_CreateString(name));
+	char* body = take_json_string(upsert);
+	char* response = NULL;
+	int status = request(&(Request){.method = "PUT", .path = "/tags", .json_body = body, .response = &response});
+	free(body);
+	if (status) return -1;
+	cJSON* root = cJSON_Parse(response);
+	status = copy_json_string(id_out, ID_LEN, cJSON_GetArrayItem(root, 0), "id") ? fail("unexpected tag response") : 0;
+	cJSON_Delete(root);
+	free(response);
+	return status;
+}
+
+static cJSON* id_array(const char** ids, int count) {
+	cJSON* array = cJSON_CreateArray();
+	for (int i = 0; i < count; i++) cJSON_AddItemToArray(array, cJSON_CreateString(ids[i]));
+	return array;
+}
+
+int immich_tag_assets(const char* tag_name, const char** asset_ids, int count) {
+	char tag_id[ID_LEN];
+	if (immich_ensure_tag(tag_name, tag_id)) return -1;
+	cJSON* bulk = cJSON_CreateObject();
+	cJSON_AddItemToObject(bulk, "tagIds", id_array((const char*[]){ tag_id }, 1));
+	cJSON_AddItemToObject(bulk, "assetIds", id_array(asset_ids, count));
+	char* body = take_json_string(bulk);
+	int status = request(&(Request){.method = "PUT", .path = "/tags/assets", .json_body = body});
+	free(body);
+	return status;
+}
+
+int immich_untag_all(const char** asset_ids, int count) {
+	char* response = NULL;
+	if (request(&(Request){.method = "GET", .path = "/tags", .response = &response})) return -1;
+	cJSON* tags = cJSON_Parse(response);
+	free(response);
+	cJSON* untag = cJSON_CreateObject();
+	cJSON_AddItemToObject(untag, "ids", id_array(asset_ids, count));
+	char* body = take_json_string(untag);
+	int status = cJSON_IsArray(tags) ? 0 : fail("unexpected tag list response");
+	for (const cJSON* tag = tags ? tags->child : NULL; tag && !status; tag = tag->next) {
+		char tag_id[ID_LEN], path[96];
+		copy_json_string(tag_id, ID_LEN, tag, "id");
+		snprintf(path, sizeof(path), "/tags/%s/assets", tag_id);
+		status = request(&(Request){.method = "DELETE", .path = path, .json_body = body});
+	}
+	free(body);
+	cJSON_Delete(tags);
 	return status;
 }

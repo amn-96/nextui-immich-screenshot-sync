@@ -8,6 +8,9 @@ fixtures=$(dirname "$0")/../fixtures
 case "$url" in
   */auth/login) body=login.json; code=201 ;;
   */api-keys) body=api_key.json; code=201 ;;
+  */tags) body=tags.json; code=200 ;;
+  */tags/assets) body=tags.json; code=200 ;;
+  */tags/*/assets) body=tags.json; code=200 ;;
   */search/metadata) grep -q abc123cursor "$2" && FAKE_SEARCH_FIXTURE=search_last_page.json; body=${FAKE_SEARCH_FIXTURE:-search_page.json}; code=200 ;;
   */bulk-upload-check)
     if [ -n "$FAKE_DUPLICATE_SHA1" ] && [ "$FAKE_CURL_FAIL" != 1 ]; then
