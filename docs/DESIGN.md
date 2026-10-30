@@ -6,7 +6,7 @@ Target: TrimUI Brick (`tg5040`, 1024x768, SCALE 3). Native C app built against N
 
 Main menu: This Device · All Screenshots · Immich Albums · Settings
 
-- **This Device** → first open runs sync onboarding (album name + match key: `(none)`, default `_NextUI` or Custom..., case-sensitive), then a grid of the `<name><key>` album (e.g. `Brick_NextUI`).
+- **This Device** → first open runs sync onboarding (album name + match key: `(none)`, default `_NextUI` or Custom..., case-sensitive; upload tag: No Tags, default `handheld-synced-screenshots` or Custom...), then a grid of the `<name><key>` album (e.g. `Brick_NextUI`).
 - **All Screenshots** → unified grid: all `* (NextUI)` albums + user-chosen extras.
 - **Immich Albums** → list of all Immich albums → grid. Selecting starts thumbnail caching.
 - **Grid** → thumbnail grid, d-pad moves, L1/R1 prev/next page, A opens viewer, B back.
@@ -17,7 +17,7 @@ Main menu: This Device · All Screenshots · Immich Albums · Settings
   - X: Info overlay (filename, date, album, size). B back.
 - **Settings**
   - Login (server URL, email, password via on-screen keyboard; also readable from SD config file)
-  - Sync Settings: Synced Album and Match Key (read-only), Force Sync, Reset Sync Settings, Daemon Autostart (stub, post-MVP), Background Sync (stub, post-MVP)
+  - Sync Settings: Synced Album and Match Key (read-only), Force Sync, Reset Sync Settings (also clears the upload tag), Upload Tag (applies to future syncs), Apply Current Tag to Synced Images, Remove Tags from Synced Images (all tags on this device's album assets; tags themselves kept), Daemon Autostart (stub, post-MVP), Background Sync (stub, post-MVP)
   - Cache: readout `501MB/2GB`, Cache Limit (L/R: 500M,1GB,2GB,5GB,10GB,Unlimited), Rebuild All Thumbnails, Clear Cache
   - All Screenshots extra albums picker
 

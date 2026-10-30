@@ -38,6 +38,7 @@ static void test_prefs_round_trip(void) {
 	strcpy(prefs.server_url, "https://photos.example.com");
 	strcpy(prefs.api_key, "k=with=equals");
 	strcpy(prefs.album_label, "Pocket");
+	strcpy(prefs.upload_tag, "my tag");
 	prefs.cache_limit_mb = 0;
 	prefs.background_sync = 1;
 	prefs.extra_album_count = 2;
@@ -50,6 +51,9 @@ static void test_prefs_round_trip(void) {
 	assert(!strcmp(prefs.server_url, "https://photos.example.com") && !strcmp(prefs.api_key, "k=with=equals"));
 	assert(!strcmp(prefs.album_label, "Pocket") && prefs.cache_limit_mb == 0 && prefs.background_sync == 1);
 	assert(prefs.extra_album_count == 2 && !strcmp(prefs.extra_album_ids[1], "id-two"));
+	assert(!strcmp(prefs.upload_tag, "my tag"));
+	prefs_reset_sync();
+	assert(!prefs.upload_tag[0]);
 }
 
 static void test_immich_parse_albums(void) {
@@ -107,6 +111,8 @@ static void test_json_string_field(void) {
 	free(json);
 }
 
+static int count_in_file(const char* path, const char* needle);
+
 static void test_client_with_fake_curl(void) {
 	setenv("PATH", "tests/fake_bin:/usr/bin:/bin", 1);
 	setenv("FAKE_CURL_LOG", "/tmp/immich-fake-curl.log", 1);
@@ -159,6 +165,28 @@ static void test_client_with_fake_curl(void) {
 
 	const char* asset_ids[] = {"x"};
 	assert(!immich_add_to_album(album_id, asset_ids, 1));
+
+	char tag_id[40];
+	assert(!immich_ensure_tag(DEFAULT_UPLOAD_TAG, tag_id) && !strcmp(tag_id, "77777777-7777-4777-8777-777777777777"));
+	config = read_file("/tmp/immich-fake-curl.log");
+	assert(strstr(config, "request = \"PUT\"") && strstr(config, "{\\\"tags\\\":[\\\"handheld-synced-screenshots\\\"]}"));
+	free(config);
+
+	const char* tagged_ids[] = {"a1", "a2"};
+	assert(!immich_tag_assets(DEFAULT_UPLOAD_TAG, tagged_ids, 2));
+	config = read_file("/tmp/immich-fake-curl.log");
+	assert(strstr(config, "/api/tags/assets\""));
+	assert(strstr(config, "{\\\"tagIds\\\":[\\\"77777777-7777-4777-8777-777777777777\\\"],\\\"assetIds\\\":[\\\"a1\\\",\\\"a2\\\"]}"));
+	free(config);
+
+	setenv("FAKE_CURL_ALL", "/tmp/immich-fake-curl-all.log", 1);
+	unlink("/tmp/immich-fake-curl-all.log");
+	assert(!immich_untag_all(tagged_ids, 2));
+	assert(count_in_file("/tmp/immich-fake-curl-all.log", "request = \"DELETE\"") == 2);
+	assert(count_in_file("/tmp/immich-fake-curl-all.log", "/api/tags/77777777-7777-4777-8777-777777777777/assets\"") == 1);
+	assert(count_in_file("/tmp/immich-fake-curl-all.log", "/api/tags/88888888-8888-4888-8888-888888888888/assets\"") == 1);
+	assert(count_in_file("/tmp/immich-fake-curl-all.log", "{\\\"ids\\\":[\\\"a1\\\",\\\"a2\\\"]}") == 2);
+	unsetenv("FAKE_CURL_ALL");
 
 	setenv("FAKE_CURL_FAIL", "1", 1);
 	assert(immich_ping() == -1 && !strcmp(immich_error(), "HTTP 401 Invalid API key"));
@@ -520,6 +548,7 @@ static void test_sync_run_uploads_and_adds_duplicates(void) {
 	assert(count_in_file("/tmp/immich-fake-curl-all.log", "/api/albums/11111111-1111-4111-8111-111111111111/assets\"") == 1);
 	assert(count_in_file("/tmp/immich-fake-curl-all.log", "dddddddd-dddd-4ddd-8ddd-dddddddddddd") == 1);
 	assert(count_in_file("/tmp/immich-fake-curl-all.log", "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee") == 2);
+	assert(!count_in_file("/tmp/immich-fake-curl-all.log", "/api/tags"));
 
 	unlink("/tmp/immich-fake-curl-all.log");
 	assert(sync_run() == 0);
@@ -568,6 +597,17 @@ static void test_sync_batches_and_failures(void) {
 	assert(sync_run() == 0);
 	sync_status(&progress);
 	assert(progress.uploaded == 105);
+
+	system("rm -f " SDCARD_ROOT "/Screenshots/*");
+	for (int i = 0; i < 3; i++) make_screenshot(200 + i, "png");
+	strcpy(prefs.upload_tag, "handhelds");
+	unlink("/tmp/immich-fake-curl-all.log");
+	assert(sync_run() == 0);
+	sync_status(&progress);
+	assert(progress.uploaded == 3 && progress.failed == 0);
+	assert(count_in_file("/tmp/immich-fake-curl-all.log", "/api/tags/assets\"") == 1);
+	assert(count_in_file("/tmp/immich-fake-curl-all.log", "\\\"tags\\\":[\\\"handhelds\\\"]") == 1);
+	prefs.upload_tag[0] = '\0';
 	unsetenv("FAKE_DUPLICATE_SHA1");
 }
 

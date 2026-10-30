@@ -70,4 +70,12 @@ int immich_bulk_upload_check(const char** paths, const char** sha1_hex, int coun
 int immich_upload(const char* path, char asset_id_out[40]);
 int immich_add_to_album(const char* album_id, const char** asset_ids, int count);
 
+// Tag calls need the tag.* permissions, which keys made before they were added to immich_login lack.
+// Returns the id of the tag named name, creating it if missing.
+int immich_ensure_tag(const char* name, char id_out[40]);
+// Assets that already carry the tag keep a single copy.
+int immich_tag_assets(const char* tag_name, const char** asset_ids, int count);
+// Removes every tag the user owns from asset_ids; the tags themselves stay.
+int immich_untag_all(const char** asset_ids, int count);
+
 #endif
